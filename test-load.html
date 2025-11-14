@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест нагрузки розыгрышей</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #8b5cf6;
+        }
+        .stats {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+        .log {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .log-entry.error {
+            color: #ff4444;
+        }
+        .log-entry.success {
+            color: #44ff44;
+        }
+        .log-entry.info {
+            color: #4444ff;
+        }
+        input[type="number"] {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 5px;
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест нагрузки системы розыгрышей</h1>
+    
+    <div class="test-controls">
+        <h2>Параметры теста</h2>
+        <div>
+            <label>Количество участников: <input type="number" id="participantCount" value="1000" min="1" max="10000"></label>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>Интервал между участниками (мс): <input type="number" id="interval" value="10" min="1" max="1000"></label>
+        </div>
+        <div style="margin-top: 10px;">
+            <button onclick="startTest()">▶️ Начать тест</button>
+            <button onclick="stopTest()">⏹️ Остановить</button>
+            <button onclick="clearLog()">🗑️ Очистить лог</button>
+            <button onclick="checkPerformance()">📊 Проверить производительность</button>
+        </div>
+    </div>
+    
+    <div class="stats" id="stats">
+        <h2>Статистика</h2>
+        <div class="stat-item">Участников добавлено: <span id="addedCount">0</span></div>
+        <div class="stat-item">Время выполнения: <span id="elapsedTime">0</span> мс</div>
+        <div class="stat-item">Скорость: <span id="speed">0</span> участников/сек</div>
+        <div class="stat-item">Размер localStorage: <span id="storageSize">0</span> KB</div>
+        <div class="stat-item">Время сохранения: <span id="saveTime">0</span> мс (среднее)</div>
+        <div class="stat-item">Ошибок: <span id="errorCount">0</span></div>
+    </div>
+    
+    <div class="log" id="log"></div>
+    
+    <script>
+        let testRunning = false;
+        let testInterval = null;
+        let startTime = null;
+        let addedCount = 0;
+        let errorCount = 0;
+        let saveTimes = [];
+        
+        // Simulate giveaway participants structure
+        const testChannel = 'test_channel';
+        const testGiveawayId = 'test_giveaway_' + Date.now();
+        let testParticipants = [];
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStats() {
+            const elapsed = Date.now() - startTime;
+            const speed = elapsed > 0 ? (addedCount / (elapsed / 1000)).toFixed(2) : 0;
+            const avgSaveTime = saveTimes.length > 0 
+                ? (saveTimes.reduce((a, b) => a + b, 0) / saveTimes.length).toFixed(2) 
+                : 0;
+            
+            // Calculate localStorage size
+            let storageSize = 0;
+            try {
+                const data = localStorage.getItem(`by_CTPAX_participants_${testChannel}`);
+                if (data) {
+                    storageSize = (new Blob([data]).size / 1024).toFixed(2);
+                }
+            } catch (e) {
+                storageSize = 'N/A';
+            }
+            
+            document.getElementById('addedCount').textContent = addedCount;
+            document.getElementById('elapsedTime').textContent = elapsed;
+            document.getElementById('speed').textContent = speed;
+            document.getElementById('storageSize').textContent = storageSize;
+            document.getElementById('saveTime').textContent = avgSaveTime;
+            document.getElementById('errorCount').textContent = errorCount;
+        }
+        
+        function simulateParticipant() {
+            if (!testRunning) return;
+            
+            try {
+                const username = `test_user_${addedCount + 1}`;
+                const userId = `user_${addedCount + 1}`;
+                
+                // Add participant
+                testParticipants.push({
+                    username: username,
+                    userId: userId
+                });
+                
+                // Simulate save to localStorage
+                const saveStart = performance.now();
+                try {
+                    const participantsData = {
+                        [testGiveawayId]: testParticipants
+                    };
+                    localStorage.setItem(`by_CTPAX_participants_${testChannel}`, JSON.stringify(participantsData));
+                    const saveTime = performance.now() - saveStart;
+                    saveTimes.push(saveTime);
+                    
+                    // Keep only last 100 save times for average
+                    if (saveTimes.length > 100) {
+                        saveTimes.shift();
+                    }
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        log(`⚠️ localStorage переполнен на ${addedCount} участниках!`, 'error');
+                        errorCount++;
+                        stopTest();
+                        return;
+                    } else {
+                        throw e;
+                    }
+                }
+                
+                addedCount++;
+                
+                // Log every 100 participants
+                if (addedCount % 100 === 0) {
+                    log(`✅ Добавлено ${addedCount} участников`, 'success');
+                }
+                
+                updateStats();
+                
+                // Check if we've reached the target
+                const targetCount = parseInt(document.getElementById('participantCount').value);
+                if (addedCount >= targetCount) {
+                    log(`🎉 Тест завершен! Добавлено ${addedCount} участников`, 'success');
+                    stopTest();
+                }
+            } catch (error) {
+                log(`❌ Ошибка: ${error.message}`, 'error');
+                errorCount++;
+                updateStats();
+            }
+        }
+        
+        function startTest() {
+            if (testRunning) {
+                log('Тест уже запущен', 'error');
+                return;
+            }
+            
+            // Reset
+            testParticipants = [];
+            addedCount = 0;
+            errorCount = 0;
+            saveTimes = [];
+            startTime = Date.now();
+            testRunning = true;
+            
+            log('🚀 Начало теста нагрузки...', 'info');
+            
+            const interval = parseInt(document.getElementById('interval').value);
+            testInterval = setInterval(simulateParticipant, interval);
+        }
+        
+        function stopTest() {
+            if (!testRunning) return;
+            
+            testRunning = false;
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+            
+            log('⏹️ Тест остановлен', 'info');
+            updateStats();
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function checkPerformance() {
+            log('📊 Проверка производительности...', 'info');
+            
+            // Check localStorage quota
+            try {
+                let testData = '';
+                for (let i = 0; i < 1000; i++) {
+                    testData += 'x';
+                }
+                localStorage.setItem('__test__', testData);
+                localStorage.removeItem('__test__');
+                
+                // Estimate available space
+                let used = 0;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key) {
+                        used += new Blob([localStorage.getItem(key)]).size;
+                    }
+                }
+                
+                const available = (5 * 1024 * 1024) - used; // 5MB typical limit
+                log(`💾 Доступно в localStorage: ${(available / 1024).toFixed(2)} KB`, 'info');
+                log(`💾 Использовано: ${(used / 1024).toFixed(2)} KB`, 'info');
+            } catch (e) {
+                log(`❌ Ошибка проверки: ${e.message}`, 'error');
+            }
+            
+            // Check current participants count
+            try {
+                const data = localStorage.getItem(`by_CTPAX_participants_${testChannel}`);
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    let total = 0;
+                    Object.values(parsed).forEach(arr => {
+                        if (Array.isArray(arr)) {
+                            total += arr.length;
+                        }
+                    });
+                    log(`👥 Текущих участников в localStorage: ${total}`, 'info');
+                }
+            } catch (e) {
+                log(`⚠️ Нет данных участников: ${e.message}`, 'info');
+            }
+        }
+        
+        // Auto-update stats
+        setInterval(updateStats, 100);
+    </script>
+</body>
+</html>
+

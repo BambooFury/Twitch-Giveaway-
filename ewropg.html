@@ -97,7 +97,7 @@
         .neon-border {
             box-shadow: 0 0 20px rgba(145, 70, 255, 0.4), 0 0 40px rgba(145, 70, 255, 0.2), 
                         inset 0 0 20px rgba(145, 70, 255, 0.1);
-            border: 1px solid rgba(145, 70, 255, 0.3);
+            border: none;
             backdrop-filter: blur(10px);
             background: rgba(31, 41, 55, 0.7);
         }
@@ -1215,6 +1215,13 @@
     scrollbar-color: #7c3aed rgba(17, 24, 39, 1);
     scrollbar-width: thin;
 }
+        /* Remove borders from body and html */
+        body, html {
+            border: none !important;
+            outline: none !important;
+            margin: 0;
+            padding: 0;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen">
@@ -4779,23 +4786,99 @@ if (!isby_CTPAX) {
         let lastSaveDataTime = 0;
         const SAVE_DATA_DEBOUNCE = 2000; // Минимум 2 секунды между сохранениями на сервер
         
+        // Performance monitoring
+        let performanceStats = {
+            participantsProcessed: 0,
+            saveOperations: 0,
+            averageSaveTime: 0,
+            maxParticipantsInMemory: 0,
+            localStorageSize: 0
+        };
+        
+        // Monitor performance
+        function updatePerformanceStats() {
+            try {
+                // Count total participants in memory
+                let totalParticipants = 0;
+                Object.values(giveawayParticipants).forEach(participants => {
+                    if (Array.isArray(participants)) {
+                        totalParticipants += participants.length;
+                    }
+                });
+                performanceStats.maxParticipantsInMemory = Math.max(performanceStats.maxParticipantsInMemory, totalParticipants);
+                
+                // Estimate localStorage size
+                try {
+                    const participantsData = localStorage.getItem(`by_CTPAX_participants_${twitchChannel}`);
+                    if (participantsData) {
+                        performanceStats.localStorageSize = new Blob([participantsData]).size;
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+                
+                // Log stats every 100 participants
+                if (performanceStats.participantsProcessed % 100 === 0 && performanceStats.participantsProcessed > 0) {
+                    console.log('📊 Статистика производительности:', {
+                        участников_обработано: performanceStats.participantsProcessed,
+                        участников_в_памяти: totalParticipants,
+                        размер_localStorage: `${(performanceStats.localStorageSize / 1024).toFixed(2)} KB`,
+                        операций_сохранения: performanceStats.saveOperations,
+                        среднее_время_сохранения: `${performanceStats.averageSaveTime.toFixed(2)}ms`
+                    });
+                }
+            } catch (error) {
+                console.warn('Ошибка обновления статистики производительности:', error);
+            }
+        }
+        
         // Save data to localStorage
         function saveData() {
             if (!twitchChannel) return;
             
             try {
+                const saveStartTime = performance.now();
+                
                 // Save recent winners
                 localStorage.setItem(`by_CTPAX_winners_${twitchChannel}`, JSON.stringify(recentWinners));
                 
                 // Save active giveaways
                 localStorage.setItem(`by_CTPAX_giveaways_${twitchChannel}`, JSON.stringify(activeGiveaways));
                 
-                // Save giveaway participants
-                localStorage.setItem(`by_CTPAX_participants_${twitchChannel}`, JSON.stringify(giveawayParticipants));
+                // Save giveaway participants (optimized for large datasets)
+                const participantsData = JSON.stringify(giveawayParticipants);
+                try {
+                    localStorage.setItem(`by_CTPAX_participants_${twitchChannel}`, participantsData);
+                } catch (e) {
+                    // If localStorage is full, try to clean up old data
+                    if (e.name === 'QuotaExceededError') {
+                        console.warn('⚠️ localStorage переполнен, очищаем старые данные...');
+                        // Keep only last 50 winners
+                        if (recentWinners.length > 50) {
+                            recentWinners = recentWinners.slice(-50);
+                            localStorage.setItem(`by_CTPAX_winners_${twitchChannel}`, JSON.stringify(recentWinners));
+                        }
+                        // Try again
+                        localStorage.setItem(`by_CTPAX_participants_${twitchChannel}`, participantsData);
+                    } else {
+                        throw e;
+                    }
+                }
                 
                 saveChatHistory();
                 
-                console.log('Данные сохранены в localStorage');
+                // Update performance stats
+                const saveTime = performance.now() - saveStartTime;
+                performanceStats.saveOperations++;
+                performanceStats.averageSaveTime = (performanceStats.averageSaveTime * (performanceStats.saveOperations - 1) + saveTime) / performanceStats.saveOperations;
+                
+                // Only log every 10th save to reduce console spam
+                if (performanceStats.saveOperations % 10 === 0) {
+                    console.log(`💾 Данные сохранены (${saveTime.toFixed(2)}ms)`);
+                }
+                
+                // Update performance stats after save
+                updatePerformanceStats();
                 
                 // Отправляем на сервер с debounce (не блокируем работу при ошибке)
                 if (USE_SERVER) {
@@ -5322,6 +5405,16 @@ if (!isby_CTPAX) {
                             }
                         }
                         
+                        // Check max participants limit
+                        const currentParticipants = giveawayParticipants[giveaway.id]?.length || 0;
+                        const maxParticipants = channelSettings.maxParticipants || 1000;
+                        
+                        if (currentParticipants >= maxParticipants) {
+                            console.log(`Розыгрыш "${giveaway.name}" достиг лимита участников (${maxParticipants})`);
+                            isValidGiveawayParticipant = false;
+                            return; // Skip this giveaway
+                        }
+                        
                         // Add participant if not already in list and passes filters
                         const existingParticipant = giveawayParticipants[giveaway.id].find(p => p.username === username);
                         if (!existingParticipant && canParticipate) {
@@ -5341,7 +5434,11 @@ if (!isby_CTPAX) {
                                 });
                             }
                             
-                            // Save data when new participant joins
+                            // Update performance stats
+                            performanceStats.participantsProcessed++;
+                            updatePerformanceStats();
+                            
+                            // Save data when new participant joins (with debounce)
                             saveData();
                             
                             // Show notification about new participant
