@@ -1194,7 +1194,7 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(55, 65, 81, 0.5);
+    background: rgba(17, 24, 39, 0.8);
     border-radius: 10px;
 }
 
@@ -1212,7 +1212,7 @@
 
 /* Firefox */
 * {
-    scrollbar-color: linear-gradient(180deg, #7c3aed 0%, #ec4899 100%) rgba(55, 65, 81, 0.5);
+    scrollbar-color: linear-gradient(180deg, #7c3aed 0%, #ec4899 100%) rgba(17, 24, 39, 0.8);
     scrollbar-width: thin;
 }
     </style>
@@ -2284,14 +2284,14 @@
             <div class="flex justify-between items-center mb-6 relative z-10">
                 <div class="flex items-center space-x-3">
                     <div class="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-gear">
                             <circle cx="12" cy="12" r="3"></circle>
                             <path d="M12 1v6m0 6v6M5.64 7.05l4.95 4.95m4.95-4.95l-4.95 4.95M1 12h6m6 0h6"></path>
                         </svg>
                     </div>
                     <div>
                         <h2 class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent" data-translate="channelSettingsTitle">Настройки канала</h2>
-                        <p class="text-sm text-gray-400" data-translate="channelSettingsSubtitle">Специальные настройки для владельца by_CTPAX</p>
+                        <p class="text-sm text-gray-400" data-translate="channelSettingsSubtitle">Глобальные настройки для всех пользователей</p>
                     </div>
                 </div>
                 <button id="closeChannelSettingsModal" class="text-gray-400 hover:text-white transition-all duration-200 hover:scale-110 relative z-20">
@@ -2307,7 +2307,7 @@
                 <!-- General Settings -->
                 <div class="bg-gray-700 rounded-xl p-6">
                     <h3 class="text-xl font-bold mb-4 flex items-center space-x-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-gear">
                             <circle cx="12" cy="12" r="3"></circle>
                             <path d="M12 1v6m0 6v6M5.64 7.05l4.95 4.95m4.95-4.95l-4.95 4.95M1 12h6m6 0h6"></path>
                         </svg>
@@ -2488,8 +2488,9 @@
         <div class="flex justify-between items-center mb-8 relative z-10 pb-6 border-b border-purple-500/30">
             <div class="flex items-center space-x-4">
                 <div class="w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6M5.64 7.05l4.95 4.95m4.95-4.95l-4.95 4.95M1 12h6m6 0h6"></path>
                     </svg>
                 </div>
                 <div>
@@ -4383,6 +4384,35 @@ function updateAllPageElements() {
                 notification.remove();
             }, 4000);
         }
+        
+        // Play notification sound
+        function playNotificationSound() {
+            try {
+                // Create audio context for generating a soft, pleasant sound
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Connect nodes
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Soft, pleasant tone (C major chord - C, E, G)
+                oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                oscillator.type = 'sine';
+                
+                // Very low volume (0.05 = 5% volume)
+                gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                // Short duration
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (error) {
+                // Fallback: silent fail if audio context is not available
+                console.log('Audio notification not available');
+            }
+        }
 
         // Флаги для предотвращения повторных вызовов
         let isFetchingUserInfo = false;
@@ -4582,14 +4612,17 @@ if (!isby_CTPAX) {
             mobileUsername.textContent = `Подключен как: ${currentUsername}`;
             updateConnectionStatus(true);
             
+            // Load channel settings for all users (global settings)
+            setTimeout(() => {
+                loadChannelSettings();
+            }, 300);
+            
             // Show by_CTPAX indicator if applicable
             if (isby_CTPAX) {
                 usernameDisplay.innerHTML = `${currentUsername} <span class="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold px-2 py-1 rounded-full ml-2 shadow-lg shadow-purple-500/50">ВЛАДЕЛЕЦ</span>`;
                 
-                // Load settings first, then initialize data with longer delay
+                // Initialize user management data for owner only
                 setTimeout(() => {
-                    // Убираем консольное сообщение для безопасности
-                    loadChannelSettings();
                     initializeUserManagementData();
                 }, 500);
             }
@@ -5216,6 +5249,25 @@ if (!isby_CTPAX) {
                 chatContainer.innerHTML = '';
             }
             
+            // Auto moderation check
+            if (channelSettings.autoModeration && channelSettings.bannedWords && channelSettings.bannedWords.length > 0) {
+                const lowerMessage = message.toLowerCase();
+                const hasBannedWord = channelSettings.bannedWords.some(word => 
+                    lowerMessage.includes(word.toLowerCase().trim())
+                );
+                
+                if (hasBannedWord) {
+                    // Auto timeout user
+                    const timeoutSeconds = (channelSettings.timeoutDuration || 10) * 60;
+                    if (twitchWebSocket && twitchWebSocket.readyState === WebSocket.OPEN) {
+                        twitchWebSocket.send(`PRIVMSG #${twitchChannel} :/timeout ${username} ${timeoutSeconds}`);
+                        console.log(`Автомодерация: ${username} получил тайм-аут за запрещенное слово`);
+                    }
+                    // Don't display the message
+                    return;
+                }
+            }
+            
             // Check if this is a message from a current winner
             if (currentWinners.includes(username)) {
                 addWinnerChatMessage(username, message, tags, userId);
@@ -5282,6 +5334,11 @@ if (!isby_CTPAX) {
                             
                             // Show notification about new participant
                             showNotification(`${username} участвует в "${giveaway.name}"!`, 'info');
+                            
+                            // Play sound notification if enabled
+                            if (channelSettings.soundNotifications) {
+                                playNotificationSound();
+                            }
                             
                             // Mark as valid participant for highlighting
                             isValidGiveawayParticipant = true;
@@ -5432,7 +5489,7 @@ if (!isby_CTPAX) {
                                 <span class="font-medium truncate" data-original-username="${username}" style="color: ${userColor}">${displayUsername}</span>
                                 <span class="text-gray-400 text-xs ml-2 flex-shrink-0">${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0 ml-2">
+                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0 ml-2 mt-1">
                                 <button class="mod-action mod-warn" 
                                         data-action="warn" data-user="${username}" title="Предупреждение (1 сек мут)">
                                     <span class="relative z-10">
@@ -6553,7 +6610,7 @@ if (!isby_CTPAX) {
                                 
                                 <span class="text-gray-400 text-xs ml-2">${timeText}</span>
                             </div>
-                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0">
+                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0 mt-1">
                                 <button class="mod-action mod-warn" 
                                         data-action="warn" data-user="${username}" title="Предупреждение (1 сек мут)">
                                     <span class="relative z-10">
@@ -6665,7 +6722,7 @@ if (!isby_CTPAX) {
                                 
                                 <span class="text-gray-400 text-xs ml-2">${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0">
+                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex-shrink-0 mt-1">
                                 <button class="mod-action mod-warn" 
                                         data-action="warn" data-user="${username}" title="Предупреждение (1 сек мут)">
                                     <span class="relative z-10">
@@ -7573,10 +7630,10 @@ if (!isby_CTPAX) {
         
         // Load channel settings
         function loadChannelSettings() {
-            if (!isby_CTPAX|| !twitchChannel) return;
+            if (!twitchChannel) return;
             
             try {
-                const settingsKey = `by_CTPAX_channel_settings_${twitchChannel}`;
+                const settingsKey = `global_channel_settings_${twitchChannel}`;
                 const saved = localStorage.getItem(settingsKey);
                 
                 if (saved) {
@@ -7603,7 +7660,9 @@ if (!isby_CTPAX) {
                 
                 // Force apply settings to UI after a short delay
                 setTimeout(() => {
-                    applyChannelSettingsToUI();
+                    if (isby_CTPAX) {
+                        applyChannelSettingsToUI();
+                    }
                     updateTimeoutDuration();
                     updateResponseTimeout();
                 }, 200);
@@ -7627,10 +7686,10 @@ if (!isby_CTPAX) {
         
         // Save channel settings
         function saveChannelSettings() {
-            if (!isby_CTPAX || !twitchChannel) return;
+            if (!twitchChannel) return;
             
             try {
-                const settingsKey = `by_CTPAX_channel_settings_${twitchChannel}`;
+                const settingsKey = `global_channel_settings_${twitchChannel}`;
                 const settingsToSave = JSON.stringify(channelSettings);
                 
                 localStorage.setItem(settingsKey, settingsToSave);
@@ -7640,7 +7699,9 @@ if (!isby_CTPAX) {
                 // Verify the save was successful
                 const verification = localStorage.getItem(settingsKey);
                 if (verification === settingsToSave) {
-                    showNotification('Настройки канала сохранены и проверены!', 'success');
+                    if (isby_CTPAX) {
+                        showNotification('Настройки канала сохранены и проверены!', 'success');
+                    }
                 } else {
                     throw new Error('Верификация сохранения не прошла');
                 }
@@ -7651,7 +7712,9 @@ if (!isby_CTPAX) {
                 
             } catch (error) {
                 console.error('Ошибка сохранения настроек канала:', error);
-                showNotification('Ошибка сохранения настроек: ' + error.message, 'error');
+                if (isby_CTPAX) {
+                    showNotification('Ошибка сохранения настроек: ' + error.message, 'error');
+                }
             }
         }
         
@@ -7715,7 +7778,8 @@ if (!isby_CTPAX) {
         
         // Collect channel settings from UI
         function collectChannelSettingsFromUI() {
-            if (!isby_CTPAX) return;
+            // Allow all users to save settings (but only owner can see UI)
+            if (!twitchChannel) return;
             
             try {
                 console.log('Сбор настроек из UI...');
@@ -7796,14 +7860,15 @@ if (!isby_CTPAX) {
             if (!isby_CTPAX) return;
             
             try {
-                // Calculate total giveaways from localStorage
+                // Calculate total giveaways from localStorage (all users)
                 let totalGiveaways = 0;
                 let totalParticipants = 0;
                 
-                // Get all stored giveaway data
+                // Get all stored giveaway data from all users
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
-                    if (key && key.startsWith('by_CTPAX_giveaways_')) {
+                    // Check for all giveaway keys (not just by_CTPAX)
+                    if (key && (key.startsWith('by_CTPAX_giveaways_') || key.startsWith('giveaways_'))) {
                         try {
                             const giveaways = JSON.parse(localStorage.getItem(key) || '[]');
                             totalGiveaways += giveaways.length;
@@ -7811,7 +7876,8 @@ if (!isby_CTPAX) {
                             // Ignore parse errors
                         }
                     }
-                    if (key && key.startsWith('by_CTPAX_participants_')) {
+                    // Check for all participant keys (not just by_CTPAX)
+                    if (key && (key.startsWith('by_CTPAX_participants_') || key.startsWith('participants_'))) {
                         try {
                             const participants = JSON.parse(localStorage.getItem(key) || '{}');
                             Object.values(participants).forEach(pList => {
@@ -7825,12 +7891,29 @@ if (!isby_CTPAX) {
                     }
                 }
                 
-                const totalWinners = recentWinners.length;
+                // Count all winners from all users
+                let totalWinners = recentWinners.length;
+                // Also check localStorage for other winners
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith('by_CTPAX_recent_winners') || key.startsWith('recent_winners'))) {
+                        try {
+                            const winners = JSON.parse(localStorage.getItem(key) || '[]');
+                            totalWinners += winners.length;
+                        } catch (e) {
+                            // Ignore parse errors
+                        }
+                    }
+                }
                 
                 // Update UI
-                document.getElementById('totalGiveaways').textContent = totalGiveaways;
-                document.getElementById('totalWinners').textContent = totalWinners;
-                document.getElementById('totalParticipants').textContent = totalParticipants;
+                const totalGiveawaysEl = document.getElementById('totalGiveaways');
+                const totalWinnersEl = document.getElementById('totalWinners');
+                const totalParticipantsEl = document.getElementById('totalParticipants');
+                
+                if (totalGiveawaysEl) totalGiveawaysEl.textContent = totalGiveaways;
+                if (totalWinnersEl) totalWinnersEl.textContent = totalWinners;
+                if (totalParticipantsEl) totalParticipantsEl.textContent = totalParticipants;
             } catch (error) {
                 console.error('Ошибка обновления статистики:', error);
             }
