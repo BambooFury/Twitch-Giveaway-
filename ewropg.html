@@ -494,14 +494,14 @@
         }
         
         #chatContainer::-webkit-scrollbar-track {
-            background: rgba(17, 24, 39, 0.9);
+            background: rgba(17, 24, 39, 1) !important;
             border-radius: 10px;
         }
         
         #chatContainer::-webkit-scrollbar-thumb {
             background: linear-gradient(180deg, #7c3aed 0%, #ec4899 100%);
             border-radius: 10px;
-            border: 2px solid rgba(17, 24, 39, 0.9);
+            border: 2px solid rgba(17, 24, 39, 1) !important;
         }
         
         #chatContainer::-webkit-scrollbar-thumb:hover {
@@ -953,7 +953,7 @@
         .chat-messages::-webkit-scrollbar-track,
         .winners-list::-webkit-scrollbar-track,
         .modal-content::-webkit-scrollbar-track {
-            background: rgba(17, 24, 39, 0.9);
+            background: rgba(17, 24, 39, 1) !important;
             border-radius: 4px;
         }
         
@@ -1194,14 +1194,14 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(17, 24, 39, 0.8);
+    background: rgba(17, 24, 39, 1) !important;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #7c3aed 0%, #ec4899 100%);
     border-radius: 10px;
-    border: 2px solid rgba(55, 65, 81, 0.5);
+    border: 2px solid rgba(17, 24, 39, 1) !important;
     transition: all 0.3s ease;
 }
 
@@ -1212,7 +1212,7 @@
 
 /* Firefox */
 * {
-    scrollbar-color: linear-gradient(180deg, #7c3aed 0%, #ec4899 100%) rgba(17, 24, 39, 0.8);
+    scrollbar-color: #7c3aed rgba(17, 24, 39, 1);
     scrollbar-width: thin;
 }
     </style>
