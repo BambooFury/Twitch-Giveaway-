@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
@@ -20,13 +21,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 
+// Кеш для часто используемых данных
+const dataCache = {
+    visitors: null,
+    users: null,
+    streamers: null,
+    settings: null,
+    giveaways: null,
+    lastUpdate: {},
+    cacheTTL: 30000 // 30 секунд для данных, которые часто меняются
+};
+
 // Middleware
+app.use(compression()); // Сжатие ответов
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Увеличиваем лимит для больших данных
 
 // Логирование всех запросов
 app.use((req, res, next) => {
@@ -98,18 +111,37 @@ function getUserAgent(req) {
     return req.headers['user-agent'] || 'Unknown';
 }
 
-// Загрузка данных из файла
-async function loadData(filename) {
+// Загрузка данных из файла с кешированием
+async function loadData(filename, useCache = true) {
     // В Vercel файловая система read-only, возвращаем пустые данные
     if (process.env.VERCEL) {
         console.log(`[VERCEL] Пропуск загрузки ${filename} (read-only файловая система)`);
         return [];
     }
     
+    // Проверяем кеш для часто используемых файлов
+    const cacheKey = filename.replace('.json', '');
+    if (useCache && dataCache[cacheKey] !== null) {
+        const now = Date.now();
+        const lastUpdate = dataCache.lastUpdate[cacheKey] || 0;
+        // Если данные в кеше свежие (меньше cacheTTL), возвращаем из кеша
+        if (now - lastUpdate < dataCache.cacheTTL) {
+            return dataCache[cacheKey];
+        }
+    }
+    
     try {
         const filePath = path.join(DATA_DIR, filename);
         const data = await fsPromises.readFile(filePath, 'utf8');
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        
+        // Сохраняем в кеш для часто используемых файлов
+        if (useCache && ['visitors', 'users', 'streamers', 'settings', 'giveaways'].includes(cacheKey)) {
+            dataCache[cacheKey] = parsed;
+            dataCache.lastUpdate[cacheKey] = Date.now();
+        }
+        
+        return parsed;
     } catch (error) {
         if (error.code === 'ENOENT') {
             return [];
@@ -121,6 +153,15 @@ async function loadData(filename) {
         }
         console.error(`Ошибка загрузки ${filename}:`, error);
         return [];
+    }
+}
+
+// Инвалидация кеша для файла
+function invalidateCache(filename) {
+    const cacheKey = filename.replace('.json', '');
+    if (dataCache[cacheKey] !== undefined) {
+        dataCache[cacheKey] = null;
+        dataCache.lastUpdate[cacheKey] = 0;
     }
 }
 
@@ -141,6 +182,9 @@ async function saveData(filename, data) {
         const tempPath = filePath + '.tmp';
         await fsPromises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf8');
         await fsPromises.rename(tempPath, filePath);
+        
+        // Инвалидируем кеш после сохранения
+        invalidateCache(filename);
         
         console.log(`💾 Данные сохранены в ${filename} (${data.length || Object.keys(data).length} записей)`);
     } catch (error) {
@@ -227,10 +271,59 @@ app.post('/api/visitors', async (req, res) => {
     }
 });
 
-// API: Получение всех посетителей
-app.get('/api/visitors', async (req, res) => {
+// Простой rate limiting (в памяти)
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 минута
+const RATE_LIMIT_MAX_REQUESTS = 100; // Максимум запросов за окно
+
+function rateLimit(req, res, next) {
+    const clientIP = getClientIP(req);
+    const now = Date.now();
+    
+    if (!rateLimitStore.has(clientIP)) {
+        rateLimitStore.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return next();
+    }
+    
+    const limit = rateLimitStore.get(clientIP);
+    
+    // Если окно истекло, сбрасываем
+    if (now > limit.resetTime) {
+        limit.count = 1;
+        limit.resetTime = now + RATE_LIMIT_WINDOW;
+        return next();
+    }
+    
+    // Увеличиваем счетчик
+    limit.count++;
+    
+    // Если превышен лимит
+    if (limit.count > RATE_LIMIT_MAX_REQUESTS) {
+        res.status(429).json({ 
+            success: false, 
+            error: 'Too many requests. Please try again later.',
+            retryAfter: Math.ceil((limit.resetTime - now) / 1000)
+        });
+        return;
+    }
+    
+    next();
+}
+
+// Очистка старых записей rate limit каждые 5 минут
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, limit] of rateLimitStore.entries()) {
+        if (now > limit.resetTime) {
+            rateLimitStore.delete(ip);
+        }
+    }
+}, 300000);
+
+// API: Получение всех посетителей с улучшенной пагинацией
+app.get('/api/visitors', rateLimit, async (req, res) => {
     try {
-        const { channel, date, limit = 1000 } = req.query;
+        const { channel, date, limit = 1000, offset = 0, sort = 'desc' } = req.query;
         let visitors = await loadData('visitors.json');
         
         // Фильтрация по каналу
@@ -243,13 +336,33 @@ app.get('/api/visitors', async (req, res) => {
             visitors = visitors.filter(v => v.date === date);
         }
         
-        // Сортировка по времени (новые первые)
-        visitors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Сортировка по времени
+        const sortOrder = sort === 'asc' ? 1 : -1;
+        visitors.sort((a, b) => {
+            const dateA = new Date(a.timestamp);
+            const dateB = new Date(b.timestamp);
+            return (dateB - dateA) * sortOrder;
+        });
         
-        // Лимит
-        visitors = visitors.slice(0, parseInt(limit));
+        const totalCount = visitors.length;
+        const limitNum = Math.min(parseInt(limit), 5000); // Максимум 5000 за раз
+        const offsetNum = parseInt(offset);
         
-        res.json({ success: true, visitors, count: visitors.length });
+        // Пагинация
+        const paginatedVisitors = visitors.slice(offsetNum, offsetNum + limitNum);
+        
+        // Устанавливаем заголовки кеширования
+        res.set('Cache-Control', 'public, max-age=30'); // Кеш на 30 секунд
+        
+        res.json({ 
+            success: true, 
+            visitors: paginatedVisitors, 
+            count: paginatedVisitors.length,
+            total: totalCount,
+            offset: offsetNum,
+            limit: limitNum,
+            hasMore: offsetNum + limitNum < totalCount
+        });
     } catch (error) {
         console.error('Ошибка получения посетителей:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -416,14 +529,17 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
-// API: Загрузка данных пользователей
-app.get('/api/users', async (req, res) => {
+// API: Загрузка данных пользователей с кешированием
+app.get('/api/users', rateLimit, async (req, res) => {
     try {
         const users = await loadData('users.json');
         const streamers = await loadData('streamers.json');
         const authLog = await loadData('auth_log.json');
         const notifications = await loadData('notifications.json');
         const settings = await loadData('user_management_settings.json');
+        
+        // Устанавливаем заголовки кеширования
+        res.set('Cache-Control', 'public, max-age=60'); // Кеш на 60 секунд
         
         res.json({
             success: true,
@@ -710,8 +826,12 @@ app.post('/api/event', express.text({ type: '*/*' }), async (req, res) => {
     }
 });
 
-// Раздача статических файлов из корня проекта (после API маршрутов и главной страницы)
-app.use(express.static(__dirname));
+// Раздача статических файлов из корня проекта с кешированием
+app.use(express.static(__dirname, {
+    maxAge: '1d', // Кеш статических файлов на 1 день
+    etag: true, // Включаем ETag для валидации кеша
+    lastModified: true // Включаем Last-Modified
+}));
 
 // Обработка всех остальных маршрутов (для SPA) - возвращаем ewropg.html
 // Это нужно для правильной работы с hash routing после OAuth редиректа
