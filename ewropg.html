@@ -9205,6 +9205,27 @@ if (!isby_CTPAX) {
                 return false;
             }
             
+            // Функция для проверки, находится ли пользователь онлайн
+            function isUserOnline(user) {
+                // Проверяем lastSeen или lastLoginDate
+                const lastSeenDate = user.lastSeen ? new Date(user.lastSeen) : null;
+                const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
+                
+                // Используем более свежую дату
+                const mostRecentDate = lastSeenDate && lastLoginDate 
+                    ? (lastSeenDate > lastLoginDate ? lastSeenDate : lastLoginDate)
+                    : (lastSeenDate || lastLoginDate);
+                
+                if (!mostRecentDate) return false;
+                
+                // Пользователь считается онлайн, если был активен в последние 3 минуты
+                const now = new Date();
+                const diffMs = now - mostRecentDate;
+                const diffMinutes = diffMs / (1000 * 60);
+                
+                return diffMinutes <= 3;
+            }
+            
             // Функция для получения типа устройства пользователя
             function getUserDeviceType(user) {
                 // Пытаемся получить из browserInfo или stats
@@ -9296,10 +9317,18 @@ if (!isby_CTPAX) {
                     `;
                 }
                 
+                // Проверяем, онлайн ли пользователь
+                const userIsOnline = isUserOnline(user);
+                
                 return `
                     <tr class="hover:bg-gray-600 transition-colors duration-200">
                         <td class="px-4 py-3">
-                            <img src="${user.avatarUrl}" alt="${user.displayName}" class="w-10 h-10 rounded-full" loading="lazy">
+                            <div class="relative inline-block">
+                                <img src="${user.avatarUrl}" alt="${user.displayName}" class="w-10 h-10 rounded-full" loading="lazy">
+                                ${userIsOnline ? `
+                                    <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-700 rounded-full animate-pulse" style="box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);" title="Онлайн"></span>
+                                ` : ''}
+                            </div>
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex flex-col">
