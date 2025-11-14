@@ -735,6 +735,13 @@ app.get('/', (req, res) => {
             }
         }
         
+        // Запрещаем кеширование HTML файла для получения свежих обновлений
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        
         res.sendFile(filePath, (err) => {
             if (err) {
                 console.error('[ERROR] Ошибка отправки файла:', err);
@@ -863,6 +870,13 @@ app.get('*', (req, res) => {
             const altPath = path.join(__dirname, 'ewropg.html');
             filePath = fs.existsSync(altPath) ? altPath : filePath;
         }
+        
+        // Запрещаем кеширование HTML файла для получения свежих обновлений
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
         
         res.sendFile(filePath);
     } catch (error) {
