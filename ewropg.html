@@ -8406,7 +8406,7 @@ if (!isby_CTPAX) {
         }
         
         // Initialize user management data
-        function initializeUserManagementData() {
+        async function initializeUserManagementData() {
             if (!isby_CTPAX) return;
             
             // Загружаем список удаленных пользователей (может быть массив ID или объектов)
@@ -8416,15 +8416,32 @@ if (!isby_CTPAX) {
                 typeof item === 'string' ? item : (item && item.id ? item.id : null)
             ).filter(id => id !== null);
             
-            // Load from localStorage - no demo data, only real users
+            // Сначала загружаем данные с сервера (приоритет), затем из localStorage
+            if (USE_SERVER) {
+                await loadUserDataFromServer();
+            }
+            
+            // Load from localStorage - no demo data, only real users (используем как fallback или для дополнения)
             const savedUsers = localStorage.getItem('by_CTPAX_users');
             const savedStreamers = localStorage.getItem('by_CTPAX_streamers');
             const savedAuthLog = localStorage.getItem('by_CTPAX_auth_log');
             const savedNotifications = localStorage.getItem('by_CTPAX_notifications');
             
-            if (savedUsers) {
+            // Если данные с сервера не загрузились или пустые, используем localStorage
+            if (savedUsers && (!registeredUsers || registeredUsers.length === 0)) {
                 registeredUsers = JSON.parse(savedUsers);
-                
+            } else if (savedUsers && registeredUsers && registeredUsers.length > 0) {
+                // Объединяем данные: приоритет серверу, но добавляем уникальных пользователей из localStorage
+                const serverUserIds = new Set(registeredUsers.map(u => u.id));
+                const localUsers = JSON.parse(savedUsers);
+                localUsers.forEach(user => {
+                    if (!serverUserIds.has(user.id)) {
+                        registeredUsers.push(user);
+                    }
+                });
+            }
+            
+            if (registeredUsers && registeredUsers.length > 0) {
                 // Удаляем пользователей, которые были удалены
                 registeredUsers = registeredUsers.filter(user => !deletedUserIds.includes(user.id));
                 
@@ -8456,8 +8473,22 @@ if (!isby_CTPAX) {
                 }
             }
             
-            if (savedStreamers) {
+            // Если данные с сервера не загрузились или пустые, используем localStorage
+            if (savedStreamers && (!registeredStreamers || registeredStreamers.length === 0)) {
                 registeredStreamers = JSON.parse(savedStreamers);
+            } else if (savedStreamers && registeredStreamers && registeredStreamers.length > 0) {
+                // Объединяем данные: приоритет серверу, но добавляем уникальных стримеров из localStorage
+                const serverStreamerIds = new Set(registeredStreamers.map(s => s.id || s.login));
+                const localStreamers = JSON.parse(savedStreamers);
+                localStreamers.forEach(streamer => {
+                    const streamerId = streamer.id || streamer.login;
+                    if (!serverStreamerIds.has(streamerId)) {
+                        registeredStreamers.push(streamer);
+                    }
+                });
+            }
+            
+            if (registeredStreamers && registeredStreamers.length > 0) {
                 // Ensure all streamers have IP addresses and streamHistory
                 registeredStreamers.forEach(streamer => {
                     if (!streamer.ipAddress || streamer.ipAddress === 'unknown') {
@@ -8550,12 +8581,13 @@ if (!isby_CTPAX) {
                 }
             });
             
-            if (savedAuthLog) {
+            // Если данные с сервера не загрузились, используем localStorage
+            if (savedAuthLog && (!authorizationLog || authorizationLog.length === 0)) {
                 authorizationLog = JSON.parse(savedAuthLog).map(entry => ({
                     ...entry,
                     timestamp: new Date(entry.timestamp)
                 }));
-            } else {
+            } else if (!authorizationLog || authorizationLog.length === 0) {
                 // Start with empty log - will be populated with real actions
                 authorizationLog = [];
             }
@@ -8588,15 +8620,22 @@ if (!isby_CTPAX) {
             
             // Save updated data with IP addresses
             saveUserManagementData();
+            
+            // Запускаем периодическое автосохранение
+            startAutoSave();
         }
         
         // Debounce для saveUserManagementData
         let saveUserDataTimeout = null;
         let lastSaveUserDataTime = 0;
         const SAVE_USER_DATA_DEBOUNCE = 2000; // Минимум 2 секунды между сохранениями на сервер
+        let autoSaveInterval = null; // Интервал для периодического автосохранения
+        const AUTO_SAVE_INTERVAL = 5 * 60 * 1000; // Автосохранение каждые 5 минут
+        let saveRetryCount = 0;
+        const MAX_RETRY_COUNT = 3;
         
         // Save user management data
-        function saveUserManagementData() {
+        function saveUserManagementData(forceImmediate = false) {
             if (!isby_CTPAX) return;
             
             // Сохраняем в localStorage
@@ -8608,40 +8647,147 @@ if (!isby_CTPAX) {
             
             // Отправляем на сервер с debounce (не блокируем работу при ошибке)
             if (USE_SERVER) {
-                const now = Date.now();
-                if (now - lastSaveUserDataTime < SAVE_USER_DATA_DEBOUNCE) {
-                    // Отменяем предыдущий таймер и устанавливаем новый
+                if (forceImmediate) {
+                    // Принудительное немедленное сохранение
                     if (saveUserDataTimeout) {
                         clearTimeout(saveUserDataTimeout);
+                        saveUserDataTimeout = null;
                     }
-                    saveUserDataTimeout = setTimeout(() => {
-                        saveUserDataToServer();
-                    }, SAVE_USER_DATA_DEBOUNCE - (now - lastSaveUserDataTime));
-                } else {
                     saveUserDataToServer();
+                } else {
+                    const now = Date.now();
+                    if (now - lastSaveUserDataTime < SAVE_USER_DATA_DEBOUNCE) {
+                        // Отменяем предыдущий таймер и устанавливаем новый
+                        if (saveUserDataTimeout) {
+                            clearTimeout(saveUserDataTimeout);
+                        }
+                        saveUserDataTimeout = setTimeout(() => {
+                            saveUserDataToServer();
+                        }, SAVE_USER_DATA_DEBOUNCE - (now - lastSaveUserDataTime));
+                    } else {
+                        saveUserDataToServer();
+                    }
                 }
             }
         }
         
-        // Отдельная функция для отправки данных пользователей на сервер
-        function saveUserDataToServer() {
+        // Отдельная функция для отправки данных пользователей на сервер с повторными попытками
+        async function saveUserDataToServer(retryCount = 0) {
             lastSaveUserDataTime = Date.now();
-            fetch(`${SERVER_URL}/api/users`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    users: registeredUsers,
-                    streamers: registeredStreamers,
-                    authLog: authorizationLog,
-                    notifications: notificationSettings,
-                    settings: userManagementSettings
-                })
-            }).catch(error => {
-                // Тихо игнорируем ошибки сервера, не критично
-                console.warn('Не удалось сохранить данные пользователей на сервер (не критично):', error.message);
-            });
+            try {
+                const response = await fetch(`${SERVER_URL}/api/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        users: registeredUsers,
+                        streamers: registeredStreamers,
+                        authLog: authorizationLog,
+                        notifications: notificationSettings,
+                        settings: userManagementSettings
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Успешное сохранение - сбрасываем счетчик повторов
+                saveRetryCount = 0;
+                console.log('✅ Данные пользователей успешно сохранены на сервер');
+            } catch (error) {
+                console.warn(`⚠️ Не удалось сохранить данные пользователей на сервер (попытка ${retryCount + 1}/${MAX_RETRY_COUNT}):`, error.message);
+                
+                // Повторная попытка, если не превышен лимит
+                if (retryCount < MAX_RETRY_COUNT) {
+                    setTimeout(() => {
+                        saveUserDataToServer(retryCount + 1);
+                    }, 2000 * (retryCount + 1)); // Увеличиваем задержку с каждой попыткой
+                } else {
+                    saveRetryCount = retryCount;
+                    console.error('❌ Не удалось сохранить данные после всех попыток');
+                }
+            }
+        }
+        
+        // Загрузка данных пользователей с сервера (приоритет над localStorage)
+        async function loadUserDataFromServer() {
+            if (!USE_SERVER || !isby_CTPAX) return;
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/users`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Загружаем данные с сервера, если они есть
+                    if (data.users && data.users.length > 0) {
+                        console.log(`📥 Загружено ${data.users.length} пользователей с сервера`);
+                        registeredUsers = data.users;
+                        // Обновляем localStorage данными с сервера
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                    }
+                    
+                    if (data.streamers && data.streamers.length > 0) {
+                        console.log(`📥 Загружено ${data.streamers.length} стримеров с сервера`);
+                        registeredStreamers = data.streamers;
+                        localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
+                    }
+                    
+                    if (data.authLog && data.authLog.length > 0) {
+                        console.log(`📥 Загружено ${data.authLog.length} записей лога авторизации с сервера`);
+                        authorizationLog = data.authLog.map(entry => ({
+                            ...entry,
+                            timestamp: new Date(entry.timestamp)
+                        }));
+                        localStorage.setItem('by_CTPAX_auth_log', JSON.stringify(authorizationLog));
+                    }
+                    
+                    if (data.notifications) {
+                        notificationSettings = { ...notificationSettings, ...data.notifications };
+                        localStorage.setItem('by_CTPAX_notifications', JSON.stringify(notificationSettings));
+                    }
+                    
+                    if (data.settings) {
+                        userManagementSettings = { ...userManagementSettings, ...data.settings };
+                        localStorage.setItem('by_CTPAX_user_management_settings', JSON.stringify(userManagementSettings));
+                    }
+                    
+                    console.log('✅ Данные пользователей успешно загружены с сервера');
+                }
+            } catch (error) {
+                console.warn('⚠️ Не удалось загрузить данные пользователей с сервера, используем localStorage:', error.message);
+            }
+        }
+        
+        // Запуск периодического автосохранения
+        function startAutoSave() {
+            if (!USE_SERVER || !isby_CTPAX) return;
+            
+            // Останавливаем предыдущий интервал, если он есть
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+            
+            // Запускаем периодическое автосохранение
+            autoSaveInterval = setInterval(() => {
+                console.log('💾 Автоматическое сохранение данных пользователей...');
+                saveUserManagementData(true); // Принудительное сохранение
+            }, AUTO_SAVE_INTERVAL);
+            
+            console.log(`🔄 Автосохранение данных пользователей запущено (каждые ${AUTO_SAVE_INTERVAL / 1000 / 60} минут)`);
+        }
+        
+        // Остановка периодического автосохранения
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+                console.log('⏸️ Автосохранение данных пользователей остановлено');
+            }
         }
         
         // Load user management settings
@@ -11064,6 +11210,20 @@ if (!isby_CTPAX) {
                     // sendBeacon требует Blob для JSON
                     const blob = new Blob([JSON.stringify(finalStats)], { type: 'application/json' });
                     navigator.sendBeacon(`${SERVER_URL}/api/event`, blob);
+                    
+                    // Сохраняем данные пользователей перед закрытием страницы
+                    if (isby_CTPAX) {
+                        // Принудительно сохраняем данные пользователей
+                        const userData = {
+                            users: registeredUsers,
+                            streamers: registeredStreamers,
+                            authLog: authorizationLog,
+                            notifications: notificationSettings,
+                            settings: userManagementSettings
+                        };
+                        const userDataBlob = new Blob([JSON.stringify(userData)], { type: 'application/json' });
+                        navigator.sendBeacon(`${SERVER_URL}/api/users`, userDataBlob);
+                    }
                 }
             });
             

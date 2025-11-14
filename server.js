@@ -133,15 +133,23 @@ async function saveData(filename, data) {
     }
     
     try {
+        // Убеждаемся, что директория существует
+        await ensureDataDir();
+        
         const filePath = path.join(DATA_DIR, filename);
-        await fsPromises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+        // Создаем временный файл, затем переименовываем для атомарности операции
+        const tempPath = filePath + '.tmp';
+        await fsPromises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf8');
+        await fsPromises.rename(tempPath, filePath);
+        
+        console.log(`💾 Данные сохранены в ${filename} (${data.length || Object.keys(data).length} записей)`);
     } catch (error) {
         // Если ошибка read-only (например, в других serverless окружениях)
         if (error.code === 'EROFS' || error.code === 'EACCES') {
             console.log(`[WARN] Пропуск сохранения ${filename} (read-only файловая система)`);
             return; // Возвращаем успех, но не сохраняем
         }
-        console.error(`Ошибка сохранения ${filename}:`, error);
+        console.error(`❌ Ошибка сохранения ${filename}:`, error);
         throw error;
     }
 }
@@ -738,8 +746,24 @@ app.get('*', (req, res) => {
 async function startServer() {
     await ensureDataDir();
     
+    // Загружаем и логируем существующие данные при старте
+    try {
+        const visitors = await loadData('visitors.json');
+        const users = await loadData('users.json');
+        const streamers = await loadData('streamers.json');
+        const giveaways = await loadData('giveaways.json');
+        
+        console.log(`\n📊 Статистика данных при старте:`);
+        console.log(`   - Посетители: ${visitors.length}`);
+        console.log(`   - Пользователи: ${users.length}`);
+        console.log(`   - Стримеры: ${streamers.length}`);
+        console.log(`   - Розыгрыши: ${giveaways.length}`);
+    } catch (error) {
+        console.log(`⚠️  Не удалось загрузить статистику данных: ${error.message}`);
+    }
+    
     app.listen(PORT, () => {
-        console.log(`🚀 Сервер запущен на порту ${PORT}`);
+        console.log(`\n🚀 Сервер запущен на порту ${PORT}`);
         console.log(`📁 Данные сохраняются в: ${DATA_DIR}`);
         console.log(`🌐 API доступен по адресу: http://localhost:${PORT}/api`);
         console.log(`📄 Приложение доступно по адресу: http://localhost:${PORT}/`);
