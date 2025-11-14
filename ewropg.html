@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Twitch Giveaways</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     
@@ -4595,6 +4598,9 @@ function updateAllPageElements() {
         // User management data
         let registeredUsers = [];
         let registeredStreamers = [];
+        
+        // Список разрешенных стримеров (6 стримеров)
+        const ALLOWED_STREAMER_LOGINS = ['evelone2004', 'shadowkekw', 'strogo', 'mokrivskyi', 'skillz0r1337', 'buster'];
         let authorizationLog = [];
         let notificationSettings = {
             newStreamerNotifications: true,
@@ -8663,6 +8669,9 @@ if (!isby_CTPAX) {
         async function initializeUserManagementData() {
             if (!isby_CTPAX) return;
             
+            // Создаем Set разрешенных стримеров один раз для всей функции
+            const allowedLoginsSet = new Set(ALLOWED_STREAMER_LOGINS.map(l => l.toLowerCase()));
+            
             // Загружаем список удаленных пользователей (может быть массив ID или объектов)
             const deletedUsersRaw = JSON.parse(localStorage.getItem('by_CTPAX_deleted_users') || '[]');
             // Преобразуем в массив ID для фильтрации
@@ -8743,6 +8752,66 @@ if (!isby_CTPAX) {
                 // Серверные данные имеют приоритет
             }
             
+            // Дедупликация стримеров после загрузки
+            // Ограничиваем список только разрешенными стримерами (6 стримеров)
+            if (registeredStreamers && registeredStreamers.length > 0) {
+                const streamersById = new Map();
+                const streamersByLogin = new Map();
+                
+                registeredStreamers.forEach(streamer => {
+                    const streamerId = streamer.id;
+                    const streamerLogin = streamer.login?.toLowerCase();
+                    
+                    // Пропускаем стримеров, которых нет в разрешенном списке
+                    if (streamerLogin && !allowedLoginsSet.has(streamerLogin)) {
+                        return;
+                    }
+                    
+                    // Ищем существующего стримера
+                    let existing = streamerId ? streamersById.get(streamerId) : null;
+                    if (!existing && streamerLogin) {
+                        existing = streamersByLogin.get(streamerLogin);
+                    }
+                    
+                    if (existing) {
+                        // Объединяем данные, приоритет новым данным
+                        Object.assign(existing, {
+                            ...streamer,
+                            streamHistory: existing.streamHistory || streamer.streamHistory || [],
+                            isOnline: streamer.isOnline !== undefined ? streamer.isOnline : existing.isOnline,
+                            id: streamerId || existing.id
+                        });
+                    } else {
+                        // Добавляем нового стримера
+                        if (streamerId) {
+                            streamersById.set(streamerId, streamer);
+                        }
+                        if (streamerLogin) {
+                            streamersByLogin.set(streamerLogin, streamer);
+                        }
+                    }
+                });
+                
+                // Преобразуем в массив уникальных стримеров
+                const uniqueStreamers = Array.from(streamersById.values());
+                streamersByLogin.forEach((streamer, login) => {
+                    if (!streamersById.has(streamer.id)) {
+                        uniqueStreamers.push(streamer);
+                    }
+                });
+                
+                // Ограничиваем максимум 6 стримерами
+                if (uniqueStreamers.length > 6) {
+                    console.warn(`⚠️ Обнаружено ${uniqueStreamers.length} стримеров при загрузке, ограничиваем до 6`);
+                    uniqueStreamers.splice(6);
+                }
+                
+                if (uniqueStreamers.length !== registeredStreamers.length) {
+                    console.log(`🔧 Удалено ${registeredStreamers.length - uniqueStreamers.length} дубликатов/неразрешенных стримеров при загрузке`);
+                    registeredStreamers = uniqueStreamers;
+                }
+            }
+            
             if (registeredStreamers && registeredStreamers.length > 0) {
                 // Ensure all streamers have IP addresses and streamHistory
                 registeredStreamers.forEach(streamer => {
@@ -8806,8 +8875,12 @@ if (!isby_CTPAX) {
             ];
             
             defaultStreamers.forEach(streamerInfo => {
+                const streamerLoginLower = streamerInfo.login.toLowerCase();
+                // Ищем по login и по ID (на случай если ID уже установлен)
                 const existingStreamer = registeredStreamers.find(s => 
-                    s.login?.toLowerCase() === streamerInfo.login.toLowerCase()
+                    s.login?.toLowerCase() === streamerLoginLower || 
+                    s.id === streamerLoginLower ||
+                    (s.id && s.id.toString().toLowerCase() === streamerLoginLower)
                 );
                 
                 if (!existingStreamer) {
@@ -8833,8 +8906,63 @@ if (!isby_CTPAX) {
                     if (!existingStreamer.streamHistory) {
                         existingStreamer.streamHistory = [];
                     }
+                    // Обновляем login, если он отличается
+                    if (existingStreamer.login?.toLowerCase() !== streamerLoginLower) {
+                        existingStreamer.login = streamerLoginLower;
+                    }
                 }
             });
+            
+            // Дедупликация стримеров после инициализации дефолтных
+            // Ограничиваем список только разрешенными стримерами
+            if (registeredStreamers && registeredStreamers.length > 0) {
+                const streamersById = new Map();
+                const streamersByLogin = new Map();
+                
+                registeredStreamers.forEach(streamer => {
+                    const streamerId = streamer.id;
+                    const streamerLogin = streamer.login?.toLowerCase();
+                    
+                    // Пропускаем стримеров, которых нет в разрешенном списке
+                    if (streamerLogin && !allowedLoginsSet.has(streamerLogin)) {
+                        return;
+                    }
+                    
+                    let existing = streamerId ? streamersById.get(streamerId) : null;
+                    if (!existing && streamerLogin) {
+                        existing = streamersByLogin.get(streamerLogin);
+                    }
+                    
+                    if (existing) {
+                        // Объединяем данные, приоритет новым данным
+                        Object.assign(existing, {
+                            ...streamer,
+                            streamHistory: existing.streamHistory || streamer.streamHistory || [],
+                            isOnline: streamer.isOnline !== undefined ? streamer.isOnline : existing.isOnline,
+                            id: streamerId || existing.id
+                        });
+                    } else {
+                        if (streamerId) {
+                            streamersById.set(streamerId, streamer);
+                        }
+                        if (streamerLogin) {
+                            streamersByLogin.set(streamerLogin, streamer);
+                        }
+                    }
+                });
+                
+                const uniqueStreamers = Array.from(streamersById.values());
+                streamersByLogin.forEach((streamer, login) => {
+                    if (!streamersById.has(streamer.id)) {
+                        uniqueStreamers.push(streamer);
+                    }
+                });
+                
+                if (uniqueStreamers.length !== registeredStreamers.length) {
+                    console.log(`🔧 Удалено ${registeredStreamers.length - uniqueStreamers.length} дубликатов/неразрешенных стримеров после инициализации`);
+                    registeredStreamers = uniqueStreamers;
+                }
+            }
             
             // Если данные с сервера не загрузились, используем localStorage
             if (savedAuthLog && (!authorizationLog || authorizationLog.length === 0)) {
@@ -9020,19 +9148,57 @@ if (!isby_CTPAX) {
                     // Загружаем streamers с сервера
                     if (data.streamers && Array.isArray(data.streamers) && data.streamers.length > 0) {
                         console.log(`📥 Загружено ${data.streamers.length} стримеров с сервера`);
-                        const serverStreamerIds = new Set(data.streamers.map(s => s.id));
                         const localStreamers = registeredStreamers || [];
                         
-                        // Добавляем локальных стримеров, которых нет на сервере
-                        localStreamers.forEach(localStreamer => {
-                            if (localStreamer.id && !serverStreamerIds.has(localStreamer.id)) {
-                                data.streamers.push(localStreamer);
+                        // Объединяем серверные и локальные стримеры с дедупликацией
+                        const streamersById = new Map();
+                        const streamersByLogin = new Map();
+                        
+                        // Сначала добавляем серверные стримеры (приоритет)
+                        data.streamers.forEach(streamer => {
+                            const streamerId = streamer.id;
+                            const streamerLogin = streamer.login?.toLowerCase();
+                            
+                            if (streamerId) {
+                                streamersById.set(streamerId, streamer);
+                            }
+                            if (streamerLogin) {
+                                streamersByLogin.set(streamerLogin, streamer);
                             }
                         });
                         
-                        registeredStreamers = data.streamers;
+                        // Затем добавляем локальных стримеров, которых нет на сервере
+                        localStreamers.forEach(localStreamer => {
+                            const localId = localStreamer.id;
+                            const localLogin = localStreamer.login?.toLowerCase();
+                            
+                            // Проверяем, есть ли уже такой стример
+                            const existsById = localId && streamersById.has(localId);
+                            const existsByLogin = localLogin && streamersByLogin.has(localLogin);
+                            
+                            if (!existsById && !existsByLogin) {
+                                // Добавляем только если его нет
+                                if (localId) {
+                                    streamersById.set(localId, localStreamer);
+                                }
+                                if (localLogin) {
+                                    streamersByLogin.set(localLogin, localStreamer);
+                                }
+                            }
+                        });
+                        
+                        // Преобразуем в массив уникальных стримеров (приоритет по ID)
+                        const uniqueStreamers = Array.from(streamersById.values());
+                        // Добавляем стримеров, которые есть только по login
+                        streamersByLogin.forEach((streamer, login) => {
+                            if (!streamersById.has(streamer.id)) {
+                                uniqueStreamers.push(streamer);
+                            }
+                        });
+                        
+                        registeredStreamers = uniqueStreamers;
                         localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
-                        console.log(`✅ Объединено ${registeredStreamers.length} стримеров (сервер + локальные)`);
+                        console.log(`✅ Объединено ${registeredStreamers.length} уникальных стримеров (после дедупликации)`);
                     }
                     
                     // Загружаем authLog с сервера
@@ -9252,7 +9418,7 @@ if (!isby_CTPAX) {
                 return false;
             }
             
-            // Функция для проверки, находится ли пользователь онлайн
+            // Функция для проверки, находится ли пользователь онлайн (в реальном времени)
             function isUserOnline(user) {
                 // Проверяем lastSeen (это более точный показатель активности)
                 const lastSeenDate = user.lastSeen ? new Date(user.lastSeen) : null;
@@ -9262,20 +9428,20 @@ if (!isby_CTPAX) {
                     const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
                     if (!lastLoginDate) return false;
                     
-                    // Если есть только lastLoginDate, проверяем более строго (2 минуты)
+                    // Если есть только lastLoginDate, проверяем строго (2 секунды для реального времени)
                     const now = new Date();
                     const diffMs = now - lastLoginDate;
-                    const diffMinutes = diffMs / (1000 * 60);
-                    return diffMinutes <= 2;
+                    const diffSeconds = diffMs / 1000;
+                    return diffSeconds <= 2;
                 }
                 
-                // Пользователь считается онлайн, если lastSeen обновлялся в последние 2 минуты
-                // (учитываем возможные задержки heartbeat и сетевые задержки)
+                // Пользователь считается онлайн, если lastSeen обновлялся в последние 2 секунды
+                // (heartbeat обновляется каждую секунду, поэтому 2 секунды достаточно для реального времени)
                 const now = new Date();
                 const diffMs = now - lastSeenDate;
-                const diffMinutes = diffMs / (1000 * 60);
+                const diffSeconds = diffMs / 1000;
                 
-                return diffMinutes <= 2;
+                return diffSeconds <= 2;
             }
             
             // Функция для получения типа устройства пользователя
@@ -9597,20 +9763,78 @@ if (!isby_CTPAX) {
         function renderStreamersTable() {
             if (!isby_CTPAX) return;
             
-            console.log('🎨 Рендеринг таблицы стримеров. Всего стримеров:', registeredStreamers?.length || 0);
-            console.log('📋 Стримеры для рендеринга:', registeredStreamers?.map(s => s.login || s.id) || []);
+            // Проверяем, что registeredStreamers существует и является массивом
+            if (!registeredStreamers || !Array.isArray(registeredStreamers)) {
+                console.error('❌ registeredStreamers не является массивом:', registeredStreamers);
+                registeredStreamers = [];
+            }
+            
+            // Дедупликация стримеров перед рендерингом
+            // Ограничиваем список только разрешенными стримерами (6 стримеров)
+            const allowedLoginsSet = new Set(ALLOWED_STREAMER_LOGINS.map(l => l.toLowerCase()));
+            
+            const streamersById = new Map();
+            const streamersByLogin = new Map();
+            
+            registeredStreamers.forEach(streamer => {
+                const streamerId = streamer.id;
+                const streamerLogin = streamer.login?.toLowerCase();
+                
+                // Пропускаем стримеров, которых нет в разрешенном списке
+                if (streamerLogin && !allowedLoginsSet.has(streamerLogin)) {
+                    return;
+                }
+                
+                // Ищем существующего стримера
+                let existing = streamerId ? streamersById.get(streamerId) : null;
+                if (!existing && streamerLogin) {
+                    existing = streamersByLogin.get(streamerLogin);
+                }
+                
+                if (existing) {
+                    // Объединяем данные, приоритет новым данным (особенно isOnline)
+                    Object.assign(existing, {
+                        ...streamer,
+                        streamHistory: existing.streamHistory || streamer.streamHistory || [],
+                        // Приоритет новому статусу isOnline
+                        isOnline: streamer.isOnline !== undefined ? streamer.isOnline : existing.isOnline,
+                        id: streamerId || existing.id
+                    });
+                } else {
+                    // Добавляем нового стримера
+                    if (streamerId) {
+                        streamersById.set(streamerId, streamer);
+                    }
+                    if (streamerLogin) {
+                        streamersByLogin.set(streamerLogin, streamer);
+                    }
+                }
+            });
+            
+            // Преобразуем в массив уникальных стримеров
+            const uniqueStreamers = Array.from(streamersById.values());
+            streamersByLogin.forEach((streamer, login) => {
+                if (!streamersById.has(streamer.id)) {
+                    uniqueStreamers.push(streamer);
+                }
+            });
+            
+            // Обновляем registeredStreamers
+            if (uniqueStreamers.length !== registeredStreamers.length || uniqueStreamers.length > 6) {
+                console.log(`🔧 Очистка: было ${registeredStreamers.length}, стало ${uniqueStreamers.length} стримеров`);
+                registeredStreamers = uniqueStreamers;
+                // Сохраняем очищенные данные
+                localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
+            }
+            
+            console.log('🎨 Рендеринг таблицы стримеров. Всего стримеров:', registeredStreamers.length);
+            console.log('📋 Стримеры для рендеринга:', registeredStreamers.map(s => `${s.login} (ID: ${s.id}, Online: ${s.isOnline})`));
             
             const tableBody = document.getElementById('streamersTableBody');
             const emptyState = document.getElementById('streamersEmptyState');
             const searchTerm = document.getElementById('streamerSearch')?.value.toLowerCase() || '';
             const sortBy = document.getElementById('streamerSortBy')?.value || 'activity';
             const activityFilter = document.getElementById('streamerFilterActivity')?.value || 'all';
-            
-            // Проверяем, что registeredStreamers существует и является массивом
-            if (!registeredStreamers || !Array.isArray(registeredStreamers)) {
-                console.error('❌ registeredStreamers не является массивом:', registeredStreamers);
-                registeredStreamers = [];
-            }
             
             // Filter streamers
             let filteredStreamers = registeredStreamers.filter(streamer => {
@@ -9804,10 +10028,44 @@ if (!isby_CTPAX) {
                         console.warn(`Ошибка получения видео для ${userData.login}:`, err);
                     }
                     
-                    // Находим или создаем стримера
-                    let streamer = registeredStreamers.find(s => 
-                        s.login?.toLowerCase() === userData.login.toLowerCase() || s.id === userData.id
-                    );
+                    // Находим или создаем стримера (ищем по ID и по login в нижнем регистре)
+                    const userLoginLower = userData.login.toLowerCase();
+                    const userDisplayNameLower = userData.display_name?.toLowerCase();
+                    
+                    // Находим ВСЕ дубликаты стримера (по ID, login и displayName)
+                    const allMatchingStreamers = registeredStreamers.filter(s => {
+                        // Ищем по ID (если совпадает)
+                        if (s.id === userData.id) return true;
+                        // Ищем по login в нижнем регистре
+                        if (s.login?.toLowerCase() === userLoginLower) return true;
+                        // Ищем по displayName в нижнем регистре (на случай если login отличается)
+                        if (userDisplayNameLower && s.displayName?.toLowerCase() === userDisplayNameLower) return true;
+                        return false;
+                    });
+                    
+                    // Выбираем основной стример (приоритет тому, у которого есть реальный Twitch ID)
+                    let streamer = allMatchingStreamers.find(s => s.id === userData.id) || 
+                                  allMatchingStreamers.find(s => s.login?.toLowerCase() === userLoginLower) ||
+                                  allMatchingStreamers[0];
+                    
+                    // Определяем актуальный статус стриминга
+                    const currentStreamingStatus = streamingUserIds.has(userData.id);
+                    
+                    // Если нашли дубликаты, обновляем их статус перед удалением
+                    const duplicateStreamers = allMatchingStreamers.filter(s => s !== streamer);
+                    
+                    // Обновляем статус для всех дубликатов перед удалением
+                    duplicateStreamers.forEach(dup => {
+                        dup.isOnline = currentStreamingStatus;
+                    });
+                    
+                    // Удаляем дубликаты, оставляя только основной
+                    duplicateStreamers.forEach(dup => {
+                        const index = registeredStreamers.indexOf(dup);
+                        if (index !== -1) {
+                            registeredStreamers.splice(index, 1);
+                        }
+                    });
                     
                     if (!streamer) {
                         streamer = {
@@ -9842,7 +10100,19 @@ if (!isby_CTPAX) {
                     streamer.avatarUrl = userData.profile_image_url || streamer.avatarUrl;
                     streamer.followerCount = followerCount;
                     const wasOnline = streamer.isOnline;
-                    streamer.isOnline = streamingUserIds.has(userData.id);
+                    streamer.isOnline = currentStreamingStatus;
+                    
+                    // ВАЖНО: Обновляем статус для всех возможных дубликатов в массиве
+                    // Это гарантирует, что все дубликаты имеют одинаковый статус
+                    registeredStreamers.forEach(s => {
+                        if (s !== streamer && (
+                            s.id === userData.id || 
+                            s.login?.toLowerCase() === userData.login.toLowerCase() ||
+                            s.displayName?.toLowerCase() === userData.display_name?.toLowerCase()
+                        )) {
+                            s.isOnline = currentStreamingStatus;
+                        }
+                    });
                     
                     // Обрабатываем видео только для определения последнего стрима
                     // НЕ используем их для расчета среднего онлайна
@@ -9975,6 +10245,69 @@ if (!isby_CTPAX) {
                     }
                 }
                 
+                // Дедупликация стримеров перед сохранением
+                // Ограничиваем список только разрешенными стримерами (6 стримеров)
+                const allowedLoginsSet = new Set(ALLOWED_STREAMER_LOGINS.map(l => l.toLowerCase()));
+                
+                // Группируем стримеров по ID и login для правильного объединения
+                const streamersById = new Map();
+                const streamersByLogin = new Map();
+                
+                registeredStreamers.forEach(streamer => {
+                    const streamerId = streamer.id;
+                    const streamerLogin = streamer.login?.toLowerCase();
+                    
+                    // Пропускаем стримеров, которых нет в разрешенном списке
+                    if (streamerLogin && !allowedLoginsSet.has(streamerLogin)) {
+                        return;
+                    }
+                    
+                    // Ищем существующего стримера по ID или login
+                    let existing = streamerId ? streamersById.get(streamerId) : null;
+                    if (!existing && streamerLogin) {
+                        existing = streamersByLogin.get(streamerLogin);
+                    }
+                    
+                    if (existing) {
+                        // Объединяем данные, приоритет новым данным
+                        // ВАЖНО: Приоритет актуальному статусу isOnline
+                        Object.assign(existing, {
+                            ...streamer,
+                            // Сохраняем важные данные из существующего
+                            streamHistory: existing.streamHistory || streamer.streamHistory || [],
+                            // Приоритет новому статусу isOnline (актуальный статус из API)
+                            isOnline: streamer.isOnline !== undefined ? streamer.isOnline : existing.isOnline,
+                            // Обновляем ID, если новый более точный (реальный Twitch ID)
+                            id: streamerId || existing.id
+                        });
+                    } else {
+                        // Добавляем нового стримера
+                        if (streamerId) {
+                            streamersById.set(streamerId, streamer);
+                        }
+                        if (streamerLogin) {
+                            streamersByLogin.set(streamerLogin, streamer);
+                        }
+                    }
+                });
+                
+                // Преобразуем в массив уникальных стримеров (приоритет по ID)
+                const uniqueStreamers = Array.from(streamersById.values());
+                // Добавляем стримеров, которые есть только по login
+                streamersByLogin.forEach((streamer, login) => {
+                    if (!streamersById.has(streamer.id)) {
+                        uniqueStreamers.push(streamer);
+                    }
+                });
+                
+                // Ограничиваем максимум 6 стримерами
+                if (uniqueStreamers.length > 6) {
+                    console.warn(`⚠️ Обнаружено ${uniqueStreamers.length} стримеров, ограничиваем до 6`);
+                    uniqueStreamers.splice(6);
+                }
+                
+                registeredStreamers = uniqueStreamers;
+                
                 // Сохраняем данные после обновления
                 saveUserManagementData();
                 
@@ -9982,8 +10315,9 @@ if (!isby_CTPAX) {
                 updateStreamerStatistics();
                 renderStreamersTable();
                 
-                console.log('Данные стримеров обновлены:', registeredStreamers.map(s => ({
+                console.log('Данные стримеров обновлены (после дедупликации):', registeredStreamers.map(s => ({
                     login: s.login,
+                    id: s.id,
                     isOnline: s.isOnline,
                     lastStreamDate: s.lastStreamDate,
                     avgOnline: s.avgOnline,
@@ -11639,10 +11973,9 @@ if (!isby_CTPAX) {
                 userActivityHeartbeat = null;
             }
             
-            // Запускаем heartbeat только если пользователь авторизован
-            if (currentUsername && registeredUsers) {
-                userActivityHeartbeat = setInterval(() => {
-                    // Обновляем lastSeen для текущего пользователя
+            // Функция для обновления активности текущего пользователя
+            function updateCurrentUserActivity() {
+                if (currentUsername && registeredUsers) {
                     const currentUser = registeredUsers.find(u => 
                         u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
                     );
@@ -11650,13 +11983,24 @@ if (!isby_CTPAX) {
                         currentUser.lastSeen = new Date();
                         // Сохраняем в localStorage для быстрого доступа
                         localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
-                        // Отправляем на сервер (с debounce, чтобы не перегружать)
-                        if (USE_SERVER) {
-                            saveUserManagementData();
-                        }
                     }
-                }, 30000); // Каждые 30 секунд
-                console.log('✅ Heartbeat активности пользователя запущен');
+                }
+            }
+            
+            // Запускаем heartbeat только если пользователь авторизован
+            if (currentUsername && registeredUsers) {
+                // Обновляем сразу при запуске
+                updateCurrentUserActivity();
+                
+                // Обновляем каждую секунду для реального времени
+                userActivityHeartbeat = setInterval(() => {
+                    updateCurrentUserActivity();
+                    // Отправляем на сервер каждые 30 секунд (чтобы не перегружать)
+                    if (USE_SERVER && Date.now() % 30000 < 1000) {
+                        saveUserManagementData();
+                    }
+                }, 1000); // Каждую секунду для реального времени
+                console.log('✅ Heartbeat активности пользователя запущен (обновление каждую секунду)');
             }
         }
         
@@ -11676,6 +12020,17 @@ if (!isby_CTPAX) {
                     target: e.target.tagName || 'unknown',
                     timestamp: Date.now()
                 });
+                
+                // ВАЖНО: Обновляем lastSeen сразу при клике для реального времени
+                if (currentUsername && registeredUsers) {
+                    const currentUser = registeredUsers.find(u => 
+                        u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
+                    );
+                    if (currentUser) {
+                        currentUser.lastSeen = new Date();
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                    }
+                }
                 
                 // Отправляем событие на сервер (с debounce)
                 if (clickDebounce) clearTimeout(clickDebounce);
@@ -11704,6 +12059,17 @@ if (!isby_CTPAX) {
                 if (scrollPercent > maxScroll) {
                     maxScroll = scrollPercent;
                     globalBehaviorStats.scrollDepth = maxScroll;
+                }
+                
+                // ВАЖНО: Обновляем lastSeen сразу при скролле для реального времени
+                if (currentUsername && registeredUsers) {
+                    const currentUser = registeredUsers.find(u => 
+                        u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
+                    );
+                    if (currentUser) {
+                        currentUser.lastSeen = new Date();
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                    }
                 }
                 
                 // Отправляем событие на сервер (с debounce)
@@ -11737,6 +12103,20 @@ if (!isby_CTPAX) {
                 if (userActivityHeartbeat) {
                     clearInterval(userActivityHeartbeat);
                     userActivityHeartbeat = null;
+                }
+                
+                // ВАЖНО: Помечаем пользователя как оффлайн сразу при выходе
+                // Устанавливаем lastSeen в прошлое время (2+ секунды назад), чтобы индикатор стал красным
+                if (currentUsername && registeredUsers) {
+                    const currentUser = registeredUsers.find(u => 
+                        u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
+                    );
+                    if (currentUser) {
+                        // Устанавливаем lastSeen на 3 секунды назад, чтобы индикатор сразу стал красным
+                        const offlineTime = new Date(Date.now() - 3000);
+                        currentUser.lastSeen = offlineTime;
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                    }
                 }
                 
                 if (USE_SERVER) {
@@ -12044,6 +12424,20 @@ if (!isby_CTPAX) {
                         // Проверяем статус стримеров
                         checkStreamersStatus();
                         
+                        // Автообновление таблицы пользователей в реальном времени (каждые 3 секунды)
+                        let usersTableUpdateInterval = setInterval(() => {
+                            // Обновляем только если модальное окно открыто
+                            if (!userManagementModal.classList.contains('hidden')) {
+                                renderUsersTable();
+                            } else {
+                                // Останавливаем интервал, если модальное окно закрыто
+                                clearInterval(usersTableUpdateInterval);
+                            }
+                        }, 1000); // Каждую секунду для реального времени
+                        
+                        // Сохраняем интервал для очистки при закрытии модального окна
+                        userManagementModal.dataset.updateInterval = usersTableUpdateInterval;
+                        
                         // Загружаем и синхронизируем пользователей из visitors.json при открытии модального окна
                         if (USE_SERVER) {
                             // Загружаем всех пользователей из visitors.json
@@ -12070,6 +12464,13 @@ if (!isby_CTPAX) {
                 // Save settings before closing
                 collectUserManagementSettingsFromUI();
                 saveUserManagementData();
+                
+                // Останавливаем автообновление таблицы при закрытии
+                if (userManagementModal.dataset.updateInterval) {
+                    clearInterval(parseInt(userManagementModal.dataset.updateInterval));
+                    delete userManagementModal.dataset.updateInterval;
+                }
+                
                 closeModalSmooth(userManagementModal);
                 
                 // Останавливаем проверку стримеров при закрытии
@@ -12086,6 +12487,13 @@ if (!isby_CTPAX) {
                         // Save settings before closing
                         collectUserManagementSettingsFromUI();
                         saveUserManagementData();
+                        
+                        // Останавливаем автообновление таблицы при закрытии
+                        if (userManagementModal.dataset.updateInterval) {
+                            clearInterval(parseInt(userManagementModal.dataset.updateInterval));
+                            delete userManagementModal.dataset.updateInterval;
+                        }
+                        
                         closeModalSmooth(userManagementModal);
                         
                         // Останавливаем проверку стримеров при закрытии

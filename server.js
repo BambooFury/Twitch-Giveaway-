@@ -836,11 +836,35 @@ app.get('/', (req, res) => {
         }
         
         // Запрещаем кеширование HTML файла для получения свежих обновлений
+        // Добавляем timestamp для версионирования
+        let fileStats;
+        try {
+            fileStats = fs.statSync(filePath);
+        } catch (err) {
+            console.error('[ERROR] Ошибка чтения файла:', err);
+            return res.status(404).send('Файл не найден');
+        }
+        
+        const lastModified = fileStats.mtime.getTime();
+        
         res.set({
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Cache-Control': 'no-cache, no-store, must-revalidate, private',
             'Pragma': 'no-cache',
-            'Expires': '0'
+            'Expires': '0',
+            'Last-Modified': new Date(lastModified).toUTCString(),
+            'ETag': `"${lastModified}"`,
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY'
         });
+        
+        // Проверяем If-None-Match и If-Modified-Since для валидации кеша
+        const ifNoneMatch = req.headers['if-none-match'];
+        const ifModifiedSince = req.headers['if-modified-since'];
+        
+        if (ifNoneMatch === `"${lastModified}"` || 
+            (ifModifiedSince && new Date(ifModifiedSince).getTime() >= lastModified)) {
+            return res.status(304).end(); // Not Modified
+        }
         
         res.sendFile(filePath, (err) => {
             if (err) {
@@ -972,11 +996,35 @@ app.get('*', (req, res) => {
         }
         
         // Запрещаем кеширование HTML файла для получения свежих обновлений
+        // Добавляем timestamp для версионирования
+        let fileStats;
+        try {
+            fileStats = fs.statSync(filePath);
+        } catch (err) {
+            console.error('[ERROR] Ошибка чтения файла:', err);
+            return res.status(404).send('Файл не найден');
+        }
+        
+        const lastModified = fileStats.mtime.getTime();
+        
         res.set({
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Cache-Control': 'no-cache, no-store, must-revalidate, private',
             'Pragma': 'no-cache',
-            'Expires': '0'
+            'Expires': '0',
+            'Last-Modified': new Date(lastModified).toUTCString(),
+            'ETag': `"${lastModified}"`,
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY'
         });
+        
+        // Проверяем If-None-Match и If-Modified-Since для валидации кеша
+        const ifNoneMatch = req.headers['if-none-match'];
+        const ifModifiedSince = req.headers['if-modified-since'];
+        
+        if (ifNoneMatch === `"${lastModified}"` || 
+            (ifModifiedSince && new Date(ifModifiedSince).getTime() >= lastModified)) {
+            return res.status(304).end(); // Not Modified
+        }
         
         res.sendFile(filePath);
     } catch (error) {
