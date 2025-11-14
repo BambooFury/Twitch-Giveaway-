@@ -107,11 +107,11 @@
         }
         
         .neon-border {
-            box-shadow: 0 0 20px rgba(145, 70, 255, 0.4), 0 0 40px rgba(145, 70, 255, 0.2), 
-                        inset 0 0 20px rgba(145, 70, 255, 0.1);
+            /* Убраны переливающиеся рамки - box-shadow удален */
             border: none;
             backdrop-filter: blur(10px);
             background: rgba(31, 41, 55, 0.7);
+            box-shadow: none;
         }
         
         .neon-text {
@@ -124,14 +124,14 @@
             background: rgba(31, 41, 55, 0.6);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: none;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         
         .glass-card:hover {
             background: rgba(31, 41, 55, 0.8);
-            border-color: rgba(145, 70, 255, 0.5);
-            box-shadow: 0 12px 40px rgba(145, 70, 255, 0.2);
+            border: none;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
             transform: translateY(-2px);
             transition: all 0.3s ease;
         }
@@ -488,6 +488,66 @@
             to { transform: translateY(0); opacity: 1; }
         }
         
+        /* Плавное открытие модальных окон */
+        .modal-smooth-open {
+            animation: modalSmoothOpen 0.3s ease-out forwards !important;
+        }
+        
+        @keyframes modalSmoothOpen {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        /* Плавное закрытие модальных окон */
+        .modal-smooth-close {
+            animation: modalSmoothClose 0.25s ease-in forwards !important;
+        }
+        
+        @keyframes modalSmoothClose {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+        
+        /* Плавное появление фона модального окна */
+        .modal-backdrop {
+            animation: backdropFadeIn 0.3s ease-out forwards;
+        }
+        
+        @keyframes backdropFadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        /* Применяем анимацию к контенту модального окна (первому дочернему элементу) */
+        .modal-smooth-open > div:first-child,
+        .modal-smooth-open > .glass-card,
+        .modal-smooth-open > .rounded-2xl {
+            animation: modalContentSlide 0.35s ease-out 0.1s both;
+        }
+        
+        @keyframes modalContentSlide {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
         .success-message {
             background: linear-gradient(135deg, #10B981 0%, #059669 100%);
             border: 1px solid rgba(16, 185, 129, 0.3);
@@ -542,8 +602,8 @@
         
         /* Winner modal container styles */
         .winner-modal-container {
-            border: 1px solid rgba(124, 58, 237, 0.3);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(124, 58, 237, 0.2);
+            border: none;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
         
         /* Profile picture glow animation */
@@ -1234,6 +1294,16 @@
             margin: 0;
             padding: 0;
         }
+        
+        /* Убираем рамки по краям сайта - только у основных контейнеров */
+        body, html, .container, .glass-card, .neon-border {
+            border: none !important;
+        }
+        
+        /* Убираем рамки у модальных окон и карточек */
+        [class*="modal"], [class*="card"], [class*="rounded-2xl"]:not(input):not(textarea):not(select) {
+            border: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen">
@@ -1803,7 +1873,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-400">
                                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                 </svg>
-                                Чат стрима
+                                <span data-translate="chatTitle">Чат стрима</span>
                             </h2>
                             <span id="viewerCount" class="bg-gradient-to-r from-purple-600 to-pink-600 text-xs px-3 py-1.5 rounded-full font-semibold shadow-lg shadow-purple-500/50">0 зрителей</span>
                         </div>
@@ -1878,7 +1948,7 @@
 
     <!-- New Giveaway Modal -->
     <div id="newGiveawayModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
-        <div class="glass-card rounded-2xl max-w-md w-full p-6 giveaway-modal-pulse slide-in relative overflow-hidden border-2 border-purple-500/30 shadow-2xl">
+        <div class="glass-card rounded-2xl max-w-md w-full p-6 giveaway-modal-pulse slide-in relative overflow-hidden shadow-2xl">
             <!-- Animated Background -->
             <div class="giveaway-bg">
                 <!-- Twitch Icons -->
@@ -2065,7 +2135,7 @@
 
     <!-- Winner Announcement Modal -->
     <div id="winnerModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
-        <div class="glass-card rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl winner-modal-container border-2 border-purple-500/30">
+        <div class="glass-card rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl winner-modal-container">
             <!-- Top Bar with Purple Background -->
             <div class="bg-gradient-to-r from-purple-900 via-purple-800 to-purple-900 px-6 py-5 flex items-center justify-between backdrop-blur-sm relative overflow-hidden">
                 <!-- Animated Crown Background -->
@@ -2117,7 +2187,7 @@
                     <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                     </svg>
-                    <span class="text-white font-semibold text-lg">Победитель:</span>
+                    <span class="text-white font-semibold text-lg" data-translate="winnerLabel">Победитель:</span>
                 </div>
                 <button id="closeWinnerModal" class="text-white hover:text-gray-200 transition-colors relative z-10">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2200,7 +2270,7 @@
                 <!-- Messages Section -->
                 <div class="mt-6 relative z-10">
                     <div class="flex items-center gap-2 mb-3">
-                        <h3 class="text-gray-300 text-sm font-medium">Последние сообщения от победителя:</h3>
+                        <h3 class="text-gray-300 text-sm font-medium" data-translate="lastMessagesFromWinner">Последние сообщения от победителя:</h3>
                         <div id="winnerMessageCount" class="flex items-center gap-1.5 bg-gray-800/80 backdrop-blur-sm border border-orange-500/50 rounded-lg px-2.5 py-1 shadow-lg shadow-orange-500/10">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -2209,7 +2279,7 @@
                         </div>
                     </div>
                     <div id="winnerChatContainer" class="bg-gray-800/90 backdrop-blur-sm rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto border border-gray-700/50">
-                        <div class="text-center text-gray-400 py-8">
+                        <div class="text-center text-gray-400 py-8" data-translate="waitingForNewMessages">
                             Ожидание новых сообщений...
                         </div>
                     </div>
@@ -2506,10 +2576,17 @@
         <!-- Header с градиентом -->
         <div class="flex justify-between items-center mb-8 relative z-10 pb-6 border-b border-purple-500/30">
             <div class="flex items-center space-x-4">
-                <div class="w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M12 1v6m0 6v6M5.64 7.05l4.95 4.95m4.95-4.95l-4.95 4.95M1 12h6m6 0h6"></path>
+                <div class="w-14 h-14 bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg relative overflow-hidden group hover:shadow-purple-500/50 transition-all duration-300">
+                    <!-- Animated background glow -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-purple-400/30 animate-pulse"></div>
+                    <!-- Shimmer effect on hover -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                    <!-- SVG Icon - Beautiful gear design -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative z-10 transition-transform duration-500 group-hover:rotate-90 filter drop-shadow-lg">
+                        <!-- Main gear shape -->
+                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                        <!-- Decorative outer lines -->
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" opacity="0.95"/>
                     </svg>
                 </div>
                 <div>
@@ -2570,7 +2647,7 @@
                         <path d="M5 20h14v-2H5v2zm0-4h14v-2H5v2zm0-4h14v-2H5v2zm0-4h14V8H5v2zm0-4h14V4H5v2z"/>
                     </svg>
                     
-                    <span>🌎 Язык</span>
+                    <span data-translate="languageSettings">🌎 Язык</span>
                 </h3>
                 
                 <div class="flex flex-col space-y-3">
@@ -2946,6 +3023,41 @@
         // Кеш для API запросов
         const apiCache = new Map();
         const CACHE_TTL = 30000; // 30 секунд
+        
+        // Универсальные функции для плавного открытия/закрытия модальных окон
+        function openModalSmooth(modalElement) {
+            if (!modalElement) return;
+            
+            // Убираем класс hidden
+            modalElement.classList.remove('hidden');
+            
+            // Сбрасываем анимацию для перезапуска
+            modalElement.style.animation = 'none';
+            void modalElement.offsetWidth; // Принудительный reflow для перезапуска анимации
+            
+            // Добавляем класс для анимации открытия
+            modalElement.classList.add('modal-smooth-open', 'modal-backdrop');
+            modalElement.style.animation = ''; // Возвращаем стиль для применения CSS анимации
+            
+            // Убираем класс анимации закрытия, если он был
+            modalElement.classList.remove('modal-smooth-close');
+        }
+        
+        function closeModalSmooth(modalElement) {
+            if (!modalElement) return;
+            
+            // Добавляем класс для анимации закрытия
+            modalElement.classList.add('modal-smooth-close');
+            modalElement.classList.remove('modal-smooth-open', 'modal-backdrop');
+            
+            // Скрываем модальное окно после завершения анимации
+            setTimeout(() => {
+                modalElement.classList.add('hidden');
+                modalElement.classList.remove('modal-smooth-close');
+                // Сбрасываем стили анимации
+                modalElement.style.animation = '';
+            }, 250); // Должно совпадать с длительностью анимации закрытия
+        }
         
         // Функция для кешированных fetch запросов
         async function cachedFetch(url, options = {}, useCache = true) {
@@ -3498,6 +3610,8 @@
                 viewers: 'зрителей',
                 viewer: 'зритель',
                 viewersPlural: 'зрителя',
+                winnerLabel: 'Победитель:',
+                messagesLabel: 'Сообщений:',
                 offline: 'Офлайн',
                 
                 // Giveaways
@@ -3536,6 +3650,12 @@
                 followButton: 'Подписка',
                 viewMessages: 'Открыть на Twitch',
                 messagesFrom: 'Сообщения пользователя',
+                connectedWaiting: 'Подключен к чату. Ждем сообщения...',
+                clearWinnersHistoryTitle: 'Очистить историю победителей?',
+                clearWinnersHistoryMessage: 'Это действие удалит всех последних победителей из списка. Данные нельзя будет восстановить.',
+                winnersLabel: 'Победителей:',
+                lastMessagesFromWinner: 'Последние сообщения от победителя:',
+                waitingForNewMessages: 'Ожидание новых сообщений...',
                 noMessagesYet: 'Сообщений не найдено',
                 loadingMessages: 'Загрузка сообщений из архива...',
                 chatHistoryUnavailable: 'Не удалось получить сообщения из архива Twitch',
@@ -3543,6 +3663,7 @@
                 // Settings modal
                 settingsTitle: 'Настройки',
                 interfaceSettings: '🎨 Интерфейс',
+                languageSettings: '🌎 Язык',
                 privacySettings: '⚠️ Конфиденциальность',
                 otherSettings: '🧾 Прочее',
                 hideUsernames: 'Скрыть ники участников',
@@ -3641,6 +3762,8 @@
                 viewers: 'viewers',
                 viewer: 'viewer',
                 viewersPlural: 'viewers',
+                winnerLabel: 'Winner:',
+                messagesLabel: 'Messages:',
                 offline: 'Offline',
                 
                 // Giveaways
@@ -3679,6 +3802,12 @@
                 followButton: 'Follow',
                 viewMessages: 'Open on Twitch',
                 messagesFrom: 'Messages from',
+                connectedWaiting: 'Connected to chat. Waiting for messages...',
+                clearWinnersHistoryTitle: 'Clear winners history?',
+                clearWinnersHistoryMessage: 'This action will remove all recent winners from the list. Data cannot be recovered.',
+                winnersLabel: 'Winners:',
+                lastMessagesFromWinner: 'Latest messages from winner:',
+                waitingForNewMessages: 'Waiting for new messages...',
                 noMessagesYet: 'No messages found',
                 loadingMessages: 'Loading chat archive...',
                 chatHistoryUnavailable: 'Unable to retrieve Twitch chat archive',
@@ -3686,6 +3815,7 @@
                 // Settings modal
                 settingsTitle: 'Settings',
                 interfaceSettings: '🎨 Interface',
+                languageSettings: '🌎 Language',
                 privacySettings: '⚠️ Privacy',
                 otherSettings: '🧾 Other',
                 hideUsernames: 'Hide participant nicknames',
@@ -3784,6 +3914,8 @@
                 viewers: 'глядачів',
                 viewer: 'глядач',
                 viewersPlural: 'глядача',
+                winnerLabel: 'Переможець:',
+                messagesLabel: 'Повідомлень:',
                 offline: 'Офлайн',
                 
                 // Giveaways
@@ -3822,6 +3954,12 @@
                 followButton: 'Підписка',
                 viewMessages: 'Відкрити на Twitch',
                 messagesFrom: 'Повідомлення від',
+                connectedWaiting: 'Підключено до чату. Очікуємо повідомлення...',
+                clearWinnersHistoryTitle: 'Очистити історію переможців?',
+                clearWinnersHistoryMessage: 'Ця дія видалить всіх останніх переможців зі списку. Дані не можна буде відновити.',
+                winnersLabel: 'Переможців:',
+                lastMessagesFromWinner: 'Останні повідомлення від переможця:',
+                waitingForNewMessages: 'Очікування нових повідомлень...',
                 noMessagesYet: 'Повідомлень не знайдено',
                 loadingMessages: 'Завантаження архіву повідомлень...',
                 chatHistoryUnavailable: 'Не вдалося отримати архів повідомлень Twitch',
@@ -3829,6 +3967,7 @@
                 // Settings modal
                 settingsTitle: 'Налаштування',
                 interfaceSettings: '🎨 Інтерфейс',
+                languageSettings: '🌎 Мова',
                 privacySettings: '⚠️ Конфіденційність',
                 otherSettings: '🧾 Інше',
                 hideUsernames: 'Приховати ніки учасників',
@@ -4306,6 +4445,8 @@ function updateAllPageElements() {
                 const text = span.textContent.trim();
                 if (text.includes('🎨')) {
                     span.textContent = t('interfaceSettings');
+                } else if (text.includes('🌎')) {
+                    span.textContent = t('languageSettings');
                 } else if (text.includes('⚠️')) {
                     span.textContent = t('privacySettings');
                 } else if (text.includes('🧾')) {
@@ -5083,7 +5224,7 @@ if (!isby_CTPAX) {
                 twitchWebSocket.send(`JOIN #${twitchChannel}`);
                 
                 showNotification('Подключен к чату!', 'success');
-                chatContainer.innerHTML = '<div class="text-center text-gray-500 py-4">Подключен к чату. Ждем сообщения...</div>';
+                chatContainer.innerHTML = `<div class="text-center text-gray-500 py-4">${t('connectedWaiting')}</div>`;
                 
                 // Get initial viewer count
                 fetchViewerCount();
@@ -5922,21 +6063,30 @@ if (!isby_CTPAX) {
 
         // New giveaway modal
         newGiveawayBtn.addEventListener('click', () => {
-            newGiveawayModal.classList.remove('hidden');
+            openModalSmooth(newGiveawayModal);
         });
 
         mobileNewGiveawayBtn.addEventListener('click', () => {
             mobileMenu.classList.add('hidden');
-            newGiveawayModal.classList.remove('hidden');
+            openModalSmooth(newGiveawayModal);
         });
 
         // Close giveaway modal
         closeGiveawayModal.addEventListener('click', () => {
-            newGiveawayModal.classList.add('hidden');
+            closeModalSmooth(newGiveawayModal);
         });
 
+        // Close giveaway modal when clicking outside
+        if (newGiveawayModal) {
+            newGiveawayModal.addEventListener('click', (event) => {
+                if (event.target === newGiveawayModal) {
+                    closeModalSmooth(newGiveawayModal);
+                }
+            });
+        }
+
         cancelGiveawayBtn.addEventListener('click', () => {
-            newGiveawayModal.classList.add('hidden');
+            closeModalSmooth(newGiveawayModal);
             // Reset filter buttons
             fnFilterActive = false;
             subscribersFilterActive = false;
@@ -6023,7 +6173,7 @@ if (!isby_CTPAX) {
             saveData();
             
             renderActiveGiveaways();
-            newGiveawayModal.classList.add('hidden');
+            closeModalSmooth(newGiveawayModal);
             
             showNotification(`Розыгрыш "${giveawayName}" начат!`, 'success');
             
@@ -6052,23 +6202,23 @@ if (!isby_CTPAX) {
                     <div class="flex justify-between items-start mb-2">
                         <div>
                             <h3 class="font-bold text-lg">${giveaway.name}</h3>
-                            <p class="text-sm text-gray-400">Команда: <span class="text-purple-300">${giveaway.keyword}</span></p>
-                            <p class="text-sm text-gray-400">Победителей: ${giveaway.winnerCount}</p>
+                            <p class="text-sm text-gray-400">${t('command')}: <span class="text-purple-300">${giveaway.keyword}</span></p>
+                            <p class="text-sm text-gray-400">${t('winnersLabel')} ${giveaway.winnerCount}</p>
                         </div>
                         <span class="bg-purple-900 text-xs px-2 py-1 rounded-full">
-                            ${giveaway.status === 'active' ? 'Активен' : giveaway.status === 'completed' ? 'Завершен' : 'Завершен'} • ${giveaway.participants} участников
+                            ${giveaway.status === 'active' ? t('active') : t('completed')} • ${giveaway.participants} ${t('participants')}
                         </span>
                     </div>
                     <div class="mt-3 flex justify-between items-center">
                         <div class="flex space-x-2">
                             <button class="bg-purple-700 hover:bg-purple-600 px-3 py-1 rounded text-sm transition draw-winner ${giveaway.status !== 'active' ? 'opacity-50 cursor-not-allowed' : ''}" data-id="${giveaway.id}" ${giveaway.status !== 'active' ? 'disabled' : ''}>
-                                ${giveaway.status === 'active' ? 'Выбрать победителя' : 'Завершен'}
+                                ${giveaway.status === 'active' ? t('selectWinner') : t('completed')}
                             </button>
                             <button class="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition end-giveaway" data-id="${giveaway.id}">
-                                ${giveaway.status === 'active' ? 'Завершить' : 'Удалить'}
+                                ${giveaway.status === 'active' ? t('end') : t('delete')}
                             </button>
                         </div>
-                        <span class="text-xs text-gray-400">Создан ${formatTimeAgo(giveaway.startTime)}</span>
+                        <span class="text-xs text-gray-400">${t('created')} ${formatTimeAgo(giveaway.startTime)}</span>
                     </div>
                 `;
                 giveawaysList.appendChild(giveawayElement);
@@ -6162,6 +6312,7 @@ if (!isby_CTPAX) {
             winnerMessagesTitle.textContent = `${titlePrefix} ${username}`;
             winnerMessagesModal.classList.remove('hidden');
             winnerMessagesModal.classList.add('flex');
+            openModalSmooth(winnerMessagesModal);
             winnerMessagesContent.innerHTML = `
                 <div class="text-center text-gray-300 py-8 animate-pulse">
                     ${t('loadingMessages') || 'Загрузка сообщений из архива...'}
@@ -6215,8 +6366,10 @@ if (!isby_CTPAX) {
         
         function closeWinnerMessagesModal() {
             if (!winnerMessagesModal) return;
-            winnerMessagesModal.classList.add('hidden');
-            winnerMessagesModal.classList.remove('flex');
+            closeModalSmooth(winnerMessagesModal);
+            setTimeout(() => {
+                winnerMessagesModal.classList.remove('flex');
+            }, 250);
         }
         
         function openTwitchViewerCard(username) {
@@ -6426,7 +6579,7 @@ if (!isby_CTPAX) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
-                            <span class="text-orange-400 text-sm font-bold message-count-text">Сообщений: ${messageCount}</span>
+                            <span class="text-orange-400 text-sm font-bold message-count-text">${t('messagesLabel')} ${messageCount}</span>
                         </div>
                         
                         <!-- Action Buttons -->
@@ -6473,7 +6626,7 @@ if (!isby_CTPAX) {
                                 // Update badge in this specific element
                                 const badgeElement = winnerElement.querySelector('.message-count-text');
                                 if (badgeElement) {
-                                    badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                                    badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                                 }
                                 
                                 // Update total count badge
@@ -6485,7 +6638,7 @@ if (!isby_CTPAX) {
                                 const updatedCount = userChatHistory[winner] ? userChatHistory[winner].length : 0;
                                 const badgeElement = winnerElement.querySelector('.message-count-text');
                                 if (badgeElement) {
-                                    badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                                    badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                                 }
                                 updateWinnerMessageCount();
                             });
@@ -6494,7 +6647,7 @@ if (!isby_CTPAX) {
                     const updatedCount = userChatHistory[winner] ? userChatHistory[winner].length : 0;
                     const badgeElement = winnerElement.querySelector('.message-count-text');
                     if (badgeElement) {
-                        badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                        badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                     }
                 }
             });
@@ -6502,16 +6655,28 @@ if (!isby_CTPAX) {
             // Update message count badge
             updateWinnerMessageCount();
             
-            winnerModal.classList.remove('hidden');
+            openModalSmooth(winnerModal);
         }
 
         // Close winner modal
         closeWinnerModal.addEventListener('click', () => {
-            winnerModal.classList.add('hidden');
+            closeModalSmooth(winnerModal);
             currentGiveawayForReroll = null;
             stopWinnerMonitoring();
             closeWinnerMessagesModal();
         });
+
+        // Close winner modal when clicking outside
+        if (winnerModal) {
+            winnerModal.addEventListener('click', (event) => {
+                if (event.target === winnerModal) {
+                    closeModalSmooth(winnerModal);
+                    currentGiveawayForReroll = null;
+                    stopWinnerMonitoring();
+                    closeWinnerMessagesModal();
+                }
+            });
+        }
         
         // Reroll winner
         rerollWinnerBtn.addEventListener('click', () => {
@@ -6587,7 +6752,7 @@ if (!isby_CTPAX) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
-                            <span class="text-orange-400 text-sm font-bold message-count-text">Сообщений: ${messageCount}</span>
+                            <span class="text-orange-400 text-sm font-bold message-count-text">${t('messagesLabel')} ${messageCount}</span>
                         </div>
                         
                         <!-- Action Buttons -->
@@ -6634,7 +6799,7 @@ if (!isby_CTPAX) {
                                 // Update badge in this specific element
                                 const badgeElement = winnerElement.querySelector('.message-count-text');
                                 if (badgeElement) {
-                                    badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                                    badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                                 }
                                 
                                 // Update total count badge
@@ -6646,7 +6811,7 @@ if (!isby_CTPAX) {
                                 const updatedCount = userChatHistory[winner] ? userChatHistory[winner].length : 0;
                                 const badgeElement = winnerElement.querySelector('.message-count-text');
                                 if (badgeElement) {
-                                    badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                                    badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                                 }
                                 updateWinnerMessageCount();
                             });
@@ -6655,7 +6820,7 @@ if (!isby_CTPAX) {
                     const updatedCount = userChatHistory[winner] ? userChatHistory[winner].length : 0;
                     const badgeElement = winnerElement.querySelector('.message-count-text');
                     if (badgeElement) {
-                        badgeElement.textContent = `Сообщений: ${updatedCount}`;
+                        badgeElement.textContent = `${t('messagesLabel')} ${updatedCount}`;
                     }
                 }
             });
@@ -7011,7 +7176,7 @@ if (!isby_CTPAX) {
             winnerHasResponded = false;
             
             // Clear winner chat - показываем только новые сообщения после выбора победителя
-            winnerChatContainer.innerHTML = '<div class="text-center text-gray-400 py-8">Ожидание сообщений от победителя...</div>';
+            winnerChatContainer.innerHTML = `<div class="text-center text-gray-400 py-8">${t('waitingForWinner')}</div>`;
             
             // Update status and timer display
             updateWinnerStatus(false);
@@ -7516,8 +7681,8 @@ if (!isby_CTPAX) {
             
             // Show confirmation modal
             showConfirmationModal(
-                'Очистить историю победителей?',
-                'Это действие удалит всех последних победителей из списка. Данные нельзя будет восстановить.',
+                t('clearWinnersHistoryTitle'),
+                t('clearWinnersHistoryMessage'),
                 () => {
                     // Clear winners data
                     recentWinners = [];
@@ -8759,11 +8924,13 @@ if (!isby_CTPAX) {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        users: registeredUsers,
-                        streamers: registeredStreamers,
-                        authLog: authorizationLog,
-                        notifications: notificationSettings,
-                        settings: userManagementSettings
+                        // ВАЖНО: Все данные НЕ отправляются на сервер - файлы в папке data/ управляются только вручную
+                        // Это предотвращает перезапись данных, добавленных или измененных вручную
+                        // users: registeredUsers,
+                        // streamers: registeredStreamers,
+                        // authLog: authorizationLog,
+                        // notifications: notificationSettings,
+                        // settings: userManagementSettings
                     })
                 });
                 
@@ -8808,43 +8975,47 @@ if (!isby_CTPAX) {
                 
                 const data = await response.json();
                 if (data.success) {
-                    // Загружаем данные с сервера, если они есть
-                    if (data.users && data.users.length > 0) {
-                        console.log(`📥 Загружено ${data.users.length} пользователей с сервера`);
-                        registeredUsers = data.users;
-                        // Обновляем localStorage данными с сервера
-                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
-                    }
+                    // ВАЖНО: НЕ загружаем данные с сервера, чтобы не перезаписывать локальные изменения
+                    // Файлы в папке data/ управляются только вручную или через специальные API
+                    console.log('⚠️ Загрузка данных с сервера отключена. Файлы управляются только вручную.');
                     
-                    if (data.streamers && data.streamers.length > 0) {
-                        console.log(`📥 Загружено ${data.streamers.length} стримеров с сервера`);
-                        console.log('📋 Список стримеров:', data.streamers.map(s => s.login || s.id));
-                        registeredStreamers = data.streamers;
-                        localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
-                    } else {
-                        console.warn('⚠️ Стримеры не загружены с сервера или массив пуст');
-                    }
+                    // Все данные проигнорированы, чтобы предотвратить перезапись:
+                    // - users: игнорируем
+                    // - streamers: игнорируем
+                    // - authLog: игнорируем
+                    // - notifications: игнорируем
+                    // - settings: игнорируем
                     
-                    if (data.authLog && data.authLog.length > 0) {
-                        console.log(`📥 Загружено ${data.authLog.length} записей лога авторизации с сервера`);
-                        authorizationLog = data.authLog.map(entry => ({
-                            ...entry,
-                            timestamp: new Date(entry.timestamp)
-                        }));
-                        localStorage.setItem('by_CTPAX_auth_log', JSON.stringify(authorizationLog));
-                    }
+                    // if (data.users && data.users.length > 0) {
+                    //     console.log(`📥 Загружено ${data.users.length} пользователей с сервера`);
+                    //     registeredUsers = data.users;
+                    //     localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                    // }
                     
-                    if (data.notifications) {
-                        notificationSettings = { ...notificationSettings, ...data.notifications };
-                        localStorage.setItem('by_CTPAX_notifications', JSON.stringify(notificationSettings));
-                    }
+                    // if (data.streamers && data.streamers.length > 0) {
+                    //     console.log(`⚠️ Streamers с сервера проигнорированы (${data.streamers.length} записей). Файл streamers.json управляется только вручную.`);
+                    // }
                     
-                    if (data.settings) {
-                        userManagementSettings = { ...userManagementSettings, ...data.settings };
-                        localStorage.setItem('by_CTPAX_user_management_settings', JSON.stringify(userManagementSettings));
-                    }
+                    // if (data.authLog && data.authLog.length > 0) {
+                    //     console.log(`📥 Загружено ${data.authLog.length} записей лога авторизации с сервера`);
+                    //     authorizationLog = data.authLog.map(entry => ({
+                    //         ...entry,
+                    //         timestamp: new Date(entry.timestamp)
+                    //     }));
+                    //     localStorage.setItem('by_CTPAX_auth_log', JSON.stringify(authorizationLog));
+                    // }
                     
-                    console.log('✅ Данные пользователей успешно загружены с сервера');
+                    // if (data.notifications) {
+                    //     notificationSettings = { ...notificationSettings, ...data.notifications };
+                    //     localStorage.setItem('by_CTPAX_notifications', JSON.stringify(notificationSettings));
+                    // }
+                    
+                    // if (data.settings) {
+                    //     userManagementSettings = { ...userManagementSettings, ...data.settings };
+                    //     localStorage.setItem('by_CTPAX_user_management_settings', JSON.stringify(userManagementSettings));
+                    // }
+                    
+                    console.log('✅ Загрузка данных с сервера пропущена (защита от перезаписи)');
                 }
             } catch (error) {
                 console.warn('⚠️ Не удалось загрузить данные пользователей с сервера, используем localStorage:', error.message);
@@ -9314,7 +9485,7 @@ if (!isby_CTPAX) {
         async function checkStreamersStatus() {
             if (!isby_CTPAX || !accessToken) return;
             
-            const streamerLogins = ['evelone2004', 'shadowkekw', 'StRoGo'];
+            const streamerLogins = ['evelone2004', 'shadowkekw', 'strogo', 'mokrivskyi', 'skillz0r1337', 'buster'];
             
             try {
                 // Получаем ID всех стримеров
@@ -11134,10 +11305,10 @@ if (!isby_CTPAX) {
                     
                     <div class="flex space-x-3">
                         <button class="cancel-btn flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-all duration-200">
-                            Отмена
+                            ${t('cancel')}
                         </button>
                         <button class="confirm-btn flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg transition-all duration-200 transform hover:scale-105 relative overflow-hidden">
-                            <span class="relative z-10">Удалить</span>
+                            <span class="relative z-10">${t('delete')}</span>
                             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] transition-transform duration-700 hover:translate-x-[100%]"></div>
                         </button>
                     </div>
@@ -11488,7 +11659,7 @@ if (!isby_CTPAX) {
                 }
                 
                 console.log('Открытие модала настроек канала');
-                channelSettingsModal?.classList.remove('hidden');
+                openModalSmooth(channelSettingsModal);
                 
                 // Ensure settings are loaded and applied
                 setTimeout(() => {
@@ -11500,8 +11671,17 @@ if (!isby_CTPAX) {
             });
             
             closeChannelSettingsModal?.addEventListener('click', () => {
-                channelSettingsModal?.classList.add('hidden');
+                closeModalSmooth(channelSettingsModal);
             });
+
+            // Close channel settings modal when clicking outside
+            if (channelSettingsModal) {
+                channelSettingsModal.addEventListener('click', (event) => {
+                    if (event.target === channelSettingsModal) {
+                        closeModalSmooth(channelSettingsModal);
+                    }
+                });
+            }
             
             // Settings buttons
             saveChannelSettingsBtn?.addEventListener('click', () => {
@@ -11577,7 +11757,7 @@ if (!isby_CTPAX) {
                         await loadUserDataFromServer(true);
                     }
                     initializeUserManagementData();
-                    userManagementModal?.classList.remove('hidden');
+                    openModalSmooth(userManagementModal);
                     
                     // Apply saved settings after a short delay
                     setTimeout(() => {
@@ -11615,7 +11795,7 @@ if (!isby_CTPAX) {
                 // Save settings before closing
                 collectUserManagementSettingsFromUI();
                 saveUserManagementData();
-                userManagementModal?.classList.add('hidden');
+                closeModalSmooth(userManagementModal);
                 
                 // Останавливаем проверку стримеров при закрытии
                 if (window.streamerCheckInterval) {
@@ -11623,6 +11803,24 @@ if (!isby_CTPAX) {
                     window.streamerCheckInterval = null;
                 }
             });
+
+            // Close user management modal when clicking outside
+            if (userManagementModal) {
+                userManagementModal.addEventListener('click', (event) => {
+                    if (event.target === userManagementModal) {
+                        // Save settings before closing
+                        collectUserManagementSettingsFromUI();
+                        saveUserManagementData();
+                        closeModalSmooth(userManagementModal);
+                        
+                        // Останавливаем проверку стримеров при закрытии
+                        if (window.streamerCheckInterval) {
+                            clearInterval(window.streamerCheckInterval);
+                            window.streamerCheckInterval = null;
+                        }
+                    }
+                });
+            }
             
             // Кнопка обновления IP адресов
             const refreshUserIPsBtn = document.getElementById('refreshUserIPsBtn');
@@ -11824,7 +12022,7 @@ if (!isby_CTPAX) {
             
             // Open global settings modal
             globalSettingsBtn?.addEventListener('click', () => {
-                globalSettingsModal?.classList.remove('hidden');
+                openModalSmooth(globalSettingsModal);
                 applyGlobalSettingsToUI();
                 // Update language buttons when modal opens
                 updateLanguageButtons(globalSettings.language || 'ru');
@@ -11832,8 +12030,18 @@ if (!isby_CTPAX) {
             
             // Close global settings modal
             closeGlobalSettingsModal?.addEventListener('click', () => {
-                globalSettingsModal?.classList.add('hidden');
+                closeModalSmooth(globalSettingsModal);
             });
+
+            // Close global settings modal when clicking outside
+            if (globalSettingsModal) {
+                globalSettingsModal.addEventListener('click', (event) => {
+                    // Проверяем клик именно на backdrop (сам модальный контейнер)
+                    if (event.target === globalSettingsModal) {
+                        closeModalSmooth(globalSettingsModal);
+                    }
+                });
+            }
             
             // Save global settings
             saveGlobalSettingsBtn?.addEventListener('click', () => {

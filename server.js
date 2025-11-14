@@ -509,30 +509,47 @@ app.get('/api/users-ip', async (req, res) => {
 });
 
 // API: Сохранение данных пользователей
+// ВАЖНО: Все данные НЕ сохраняются с клиента - файлы в папке data/ управляются только вручную
+// Это предотвращает перезапись данных, добавленных или измененных вручную
 app.post('/api/users', async (req, res) => {
     try {
         const clientIP = getClientIP(req);
         const { users, streamers, authLog, notifications, settings } = req.body;
         
+        // Все данные проигнорированы, чтобы предотвратить перезапись файлов
         if (users) {
-            await saveData('users.json', users);
+            console.log(`⚠️ Users от клиента проигнорированы (${users.length} записей). Файл users.json управляется только вручную.`);
         }
         if (streamers) {
-            await saveData('streamers.json', streamers);
+            console.log(`⚠️ Streamers от клиента проигнорированы (${streamers.length} записей). Файл streamers.json управляется только вручную.`);
         }
         if (authLog) {
-            await saveData('auth_log.json', authLog);
+            console.log(`⚠️ AuthLog от клиента проигнорирован (${authLog.length} записей). Файл auth_log.json управляется только вручную.`);
         }
         if (notifications) {
-            await saveData('notifications.json', notifications);
+            console.log(`⚠️ Notifications от клиента проигнорированы. Файл notifications.json управляется только вручную.`);
         }
         if (settings) {
-            await saveData('user_management_settings.json', settings);
+            console.log(`⚠️ Settings от клиента проигнорированы. Файл user_management_settings.json управляется только вручную.`);
         }
         
-        res.json({ success: true, message: 'Данные сохранены' });
+        // НЕ сохраняем данные - файлы управляются только вручную
+        // if (users) {
+        //     await saveData('users.json', users);
+        // }
+        // if (authLog) {
+        //     await saveData('auth_log.json', authLog);
+        // }
+        // if (notifications) {
+        //     await saveData('notifications.json', notifications);
+        // }
+        // if (settings) {
+        //     await saveData('user_management_settings.json', settings);
+        // }
+        
+        res.json({ success: true, message: 'Данные проигнорированы (защита от перезаписи)' });
     } catch (error) {
-        console.error('Ошибка сохранения данных:', error);
+        console.error('Ошибка обработки данных:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
