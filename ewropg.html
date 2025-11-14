@@ -3546,7 +3546,12 @@
                 subscribersFilterTitle: 'Только подписчики Twitch',
                 
                 // Global Settings
-                personalizeExperience: 'Персонализируйте ваш опыт'
+                personalizeExperience: 'Персонализируйте ваш опыт',
+                
+                // Language names
+                langEnglish: 'English',
+                langRussian: 'Русский',
+                langUkrainian: 'Українська'
             },
             en: {
                 // Header
@@ -3684,7 +3689,12 @@
                 subscribersFilterTitle: 'Twitch subscribers only',
                 
                 // Global Settings
-                personalizeExperience: 'Personalize your experience'
+                personalizeExperience: 'Personalize your experience',
+                
+                // Language names
+                langEnglish: 'English',
+                langRussian: 'Russian',
+                langUkrainian: 'Ukrainian'
             },
             ua: {
                 // Header
@@ -3822,7 +3832,12 @@
                 subscribersFilterTitle: 'Тільки підписники Twitch',
                 
                 // Global Settings
-                personalizeExperience: 'Персоналізуйте ваш досвід'
+                personalizeExperience: 'Персоналізуйте ваш досвід',
+                
+                // Language names
+                langEnglish: 'English',
+                langRussian: 'Російська',
+                langUkrainian: 'Українська'
             }
         };
         
@@ -7523,18 +7538,32 @@ if (!isby_CTPAX) {
             try {
                 console.log('Обновление кнопок языка, активный:', activeLanguage);
                 
-                const languageButtons = document.querySelectorAll('.language-btn');
-                languageButtons.forEach(btn => {
-                    btn.className = 'language-btn px-4 py-2 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-purple-500 transition-all duration-200';
-                });
+                // Update button texts with translations
+                const langEN = document.getElementById('langEN');
+                const langRU = document.getElementById('langRU');
+                const langUA = document.getElementById('langUA');
                 
-                const activeLangBtn = document.getElementById(`lang${activeLanguage.toUpperCase()}`);
-                if (activeLangBtn) {
-                    activeLangBtn.className = 'language-btn px-4 py-2 rounded-lg border border-purple-500 bg-purple-600 text-white';
-                    console.log('Активирована кнопка языка:', activeLanguage);
-                } else {
-                    console.warn('Кнопка для языка не найдена:', activeLanguage);
+                // Reset all buttons to default style
+                const defaultClasses = 'language-btn w-full px-4 py-3 rounded-lg border-2 border-gray-600 text-gray-300 hover:text-white hover:border-blue-400 bg-gray-600/30 hover:bg-gray-600/50 transition-all duration-200 flex items-center justify-start space-x-3 whitespace-nowrap';
+                const activeClasses = 'language-btn w-full px-4 py-3 rounded-lg border-2 border-purple-500 bg-purple-600/50 text-white transition-all duration-200 flex items-center justify-start space-x-3 whitespace-nowrap';
+                
+                if (langEN) {
+                    langEN.className = activeLanguage === 'en' ? activeClasses : defaultClasses.replace('hover:border-blue-400', 'hover:border-blue-400');
+                    const spanEN = langEN.querySelector('span.flex-1');
+                    if (spanEN) spanEN.textContent = t('langEnglish');
                 }
+                if (langRU) {
+                    langRU.className = activeLanguage === 'ru' ? activeClasses : defaultClasses.replace('hover:border-blue-400', 'hover:border-purple-500');
+                    const spanRU = langRU.querySelector('span.flex-1');
+                    if (spanRU) spanRU.textContent = t('langRussian');
+                }
+                if (langUA) {
+                    langUA.className = activeLanguage === 'ua' ? activeClasses : defaultClasses.replace('hover:border-blue-400', 'hover:border-yellow-400');
+                    const spanUA = langUA.querySelector('span.flex-1');
+                    if (spanUA) spanUA.textContent = t('langUkrainian');
+                }
+                
+                console.log('Кнопки языка обновлены');
             } catch (error) {
                 console.error('Ошибка обновления кнопок языка:', error);
             }
@@ -11497,6 +11526,8 @@ if (!isby_CTPAX) {
             globalSettingsBtn?.addEventListener('click', () => {
                 globalSettingsModal?.classList.remove('hidden');
                 applyGlobalSettingsToUI();
+                // Update language buttons when modal opens
+                updateLanguageButtons(globalSettings.language || 'ru');
             });
             
             // Close global settings modal
