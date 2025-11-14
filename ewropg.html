@@ -5274,12 +5274,24 @@ if (!isby_CTPAX) {
             }
             
             // Check for giveaway participation
-            const isGiveawayCommand = activeGiveaways.some(g => message.includes(g.keyword));
+            // Helper function to check if keyword matches exactly (not part of another word)
+            const isWholeWordMatch = (text, keyword) => {
+                // Escape special regex characters in keyword
+                const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Create regex that matches keyword exactly:
+                // - At start of string or preceded by space
+                // - Followed by space or end of string ONLY (no other characters)
+                // This ensures !ak matches but !ak' doesn't
+                const regex = new RegExp(`(^|\\s)${escapedKeyword}(\\s|$)`, 'i');
+                return regex.test(text);
+            };
+            
+            const isGiveawayCommand = activeGiveaways.some(g => isWholeWordMatch(message, g.keyword));
             let isValidGiveawayParticipant = false; // Track if user actually passed filters and was added
             
             if (isGiveawayCommand) {
                 activeGiveaways.forEach(giveaway => {
-                    if (message.includes(giveaway.keyword) && giveaway.status === 'active') {
+                    if (isWholeWordMatch(message, giveaway.keyword) && giveaway.status === 'active') {
                         // Initialize participants array if not exists
                         if (!giveawayParticipants[giveaway.id]) {
                             giveawayParticipants[giveaway.id] = [];
@@ -6794,7 +6806,7 @@ if (!isby_CTPAX) {
             updateWinnerMessageCount();
             
             // Auto scroll to bottom
-            winnerChatContainer.scrollTop = winnerChatContainer.scrollHeight;
+            winnerChatContainer.scrollTop = winner1tainer.scrollHeight;
         }
         
         // Start winner monitoring
