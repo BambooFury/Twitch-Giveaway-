@@ -8551,19 +8551,19 @@ if (!isby_CTPAX) {
                 }
             }
             
+            // Если данные с сервера загрузились, используем их (приоритет серверу)
             // Если данные с сервера не загрузились или пустые, используем localStorage
-            if (savedStreamers && (!registeredStreamers || registeredStreamers.length === 0)) {
-                registeredStreamers = JSON.parse(savedStreamers);
-            } else if (savedStreamers && registeredStreamers && registeredStreamers.length > 0) {
-                // Объединяем данные: приоритет серверу, но добавляем уникальных стримеров из localStorage
-                const serverStreamerIds = new Set(registeredStreamers.map(s => s.id || s.login));
-                const localStreamers = JSON.parse(savedStreamers);
-                localStreamers.forEach(streamer => {
-                    const streamerId = streamer.id || streamer.login;
-                    if (!serverStreamerIds.has(streamerId)) {
-                        registeredStreamers.push(streamer);
-                    }
-                });
+            if (!registeredStreamers || registeredStreamers.length === 0) {
+                if (savedStreamers) {
+                    console.log('📦 Загружаем стримеров из localStorage (fallback)');
+                    registeredStreamers = JSON.parse(savedStreamers);
+                } else {
+                    registeredStreamers = [];
+                }
+            } else {
+                console.log('✅ Используем стримеров с сервера (приоритет)');
+                // Если данные с сервера загрузились, не используем localStorage
+                // Серверные данные имеют приоритет
             }
             
             if (registeredStreamers && registeredStreamers.length > 0) {
@@ -8818,8 +8818,11 @@ if (!isby_CTPAX) {
                     
                     if (data.streamers && data.streamers.length > 0) {
                         console.log(`📥 Загружено ${data.streamers.length} стримеров с сервера`);
+                        console.log('📋 Список стримеров:', data.streamers.map(s => s.login || s.id));
                         registeredStreamers = data.streamers;
                         localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
+                    } else {
+                        console.warn('⚠️ Стримеры не загружены с сервера или массив пуст');
                     }
                     
                     if (data.authLog && data.authLog.length > 0) {
@@ -9183,11 +9186,20 @@ if (!isby_CTPAX) {
         function renderStreamersTable() {
             if (!isby_CTPAX) return;
             
+            console.log('🎨 Рендеринг таблицы стримеров. Всего стримеров:', registeredStreamers?.length || 0);
+            console.log('📋 Стримеры для рендеринга:', registeredStreamers?.map(s => s.login || s.id) || []);
+            
             const tableBody = document.getElementById('streamersTableBody');
             const emptyState = document.getElementById('streamersEmptyState');
-            const searchTerm = document.getElementById('streamerSearch').value.toLowerCase();
-            const sortBy = document.getElementById('streamerSortBy').value;
-            const activityFilter = document.getElementById('streamerFilterActivity').value;
+            const searchTerm = document.getElementById('streamerSearch')?.value.toLowerCase() || '';
+            const sortBy = document.getElementById('streamerSortBy')?.value || 'activity';
+            const activityFilter = document.getElementById('streamerFilterActivity')?.value || 'all';
+            
+            // Проверяем, что registeredStreamers существует и является массивом
+            if (!registeredStreamers || !Array.isArray(registeredStreamers)) {
+                console.error('❌ registeredStreamers не является массивом:', registeredStreamers);
+                registeredStreamers = [];
+            }
             
             // Filter streamers
             let filteredStreamers = registeredStreamers.filter(streamer => {
