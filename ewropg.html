@@ -11631,6 +11631,35 @@ if (!isby_CTPAX) {
             event.preventDefault(); // Предотвращаем перезагрузку
         });
         
+        // Функция для запуска heartbeat активности пользователя (глобальная)
+        function startUserActivityHeartbeat() {
+            // Останавливаем предыдущий heartbeat, если он есть
+            if (userActivityHeartbeat) {
+                clearInterval(userActivityHeartbeat);
+                userActivityHeartbeat = null;
+            }
+            
+            // Запускаем heartbeat только если пользователь авторизован
+            if (currentUsername && registeredUsers) {
+                userActivityHeartbeat = setInterval(() => {
+                    // Обновляем lastSeen для текущего пользователя
+                    const currentUser = registeredUsers.find(u => 
+                        u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
+                    );
+                    if (currentUser) {
+                        currentUser.lastSeen = new Date();
+                        // Сохраняем в localStorage для быстрого доступа
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                        // Отправляем на сервер (с debounce, чтобы не перегружать)
+                        if (USE_SERVER) {
+                            saveUserManagementData();
+                        }
+                    }
+                }, 30000); // Каждые 30 секунд
+                console.log('✅ Heartbeat активности пользователя запущен');
+            }
+        }
+        
         // Инициализация глобального отслеживания поведения
         function initGlobalBehaviorTracking() {
             // Отслеживание кликов
@@ -11701,35 +11730,6 @@ if (!isby_CTPAX) {
                     });
                 }
             }, 1000);
-            
-            // Функция для запуска heartbeat активности пользователя
-            function startUserActivityHeartbeat() {
-                // Останавливаем предыдущий heartbeat, если он есть
-                if (userActivityHeartbeat) {
-                    clearInterval(userActivityHeartbeat);
-                    userActivityHeartbeat = null;
-                }
-                
-                // Запускаем heartbeat только если пользователь авторизован
-                if (currentUsername && registeredUsers) {
-                    userActivityHeartbeat = setInterval(() => {
-                        // Обновляем lastSeen для текущего пользователя
-                        const currentUser = registeredUsers.find(u => 
-                            u.login && u.login.toLowerCase() === currentUsername.toLowerCase()
-                        );
-                        if (currentUser) {
-                            currentUser.lastSeen = new Date();
-                            // Сохраняем в localStorage для быстрого доступа
-                            localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
-                            // Отправляем на сервер (с debounce, чтобы не перегружать)
-                            if (USE_SERVER) {
-                                saveUserManagementData();
-                            }
-                        }
-                    }, 30000); // Каждые 30 секунд
-                    console.log('✅ Heartbeat активности пользователя запущен');
-                }
-            }
             
             // Отправка финальной статистики при уходе со страницы
             window.addEventListener('beforeunload', () => {
