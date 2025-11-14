@@ -8932,13 +8932,12 @@ if (!isby_CTPAX) {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        // ВАЖНО: Все данные НЕ отправляются на сервер - файлы в папке data/ управляются только вручную
-                        // Это предотвращает перезапись данных, добавленных или измененных вручную
-                        // users: registeredUsers,
-                        // streamers: registeredStreamers,
-                        // authLog: authorizationLog,
-                        // notifications: notificationSettings,
-                        // settings: userManagementSettings
+                        // Отправляем данные пользователей на сервер для постоянного хранения
+                        users: registeredUsers || [],
+                        streamers: registeredStreamers || [],
+                        authLog: authorizationLog || [],
+                        notifications: notificationSettings || {},
+                        settings: userManagementSettings || {}
                     })
                 });
                 
@@ -8983,47 +8982,84 @@ if (!isby_CTPAX) {
                 
                 const data = await response.json();
                 if (data.success) {
-                    // ВАЖНО: НЕ загружаем данные с сервера, чтобы не перезаписывать локальные изменения
-                    // Файлы в папке data/ управляются только вручную или через специальные API
-                    console.log('⚠️ Загрузка данных с сервера отключена. Файлы управляются только вручную.');
+                    // Загружаем данные с сервера и объединяем с локальными
+                    if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+                        console.log(`📥 Загружено ${data.users.length} пользователей с сервера`);
+                        
+                        // Умное слияние: объединяем серверные данные с локальными
+                        const serverUserIds = new Set(data.users.map(u => u.id || u.login));
+                        const localUsers = registeredUsers || [];
+                        
+                        // Добавляем локальных пользователей, которых нет на сервере
+                        localUsers.forEach(localUser => {
+                            const exists = localUser.id ? serverUserIds.has(localUser.id) : false;
+                            if (!exists && localUser.login) {
+                                const existsByLogin = data.users.some(u => u.login && u.login.toLowerCase() === localUser.login.toLowerCase());
+                                if (!existsByLogin) {
+                                    data.users.push(localUser);
+                                }
+                            }
+                        });
+                        
+                        registeredUsers = data.users;
+                        localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
+                        console.log(`✅ Объединено ${registeredUsers.length} пользователей (сервер + локальные)`);
+                    }
                     
-                    // Все данные проигнорированы, чтобы предотвратить перезапись:
-                    // - users: игнорируем
-                    // - streamers: игнорируем
-                    // - authLog: игнорируем
-                    // - notifications: игнорируем
-                    // - settings: игнорируем
+                    // Загружаем streamers с сервера
+                    if (data.streamers && Array.isArray(data.streamers) && data.streamers.length > 0) {
+                        console.log(`📥 Загружено ${data.streamers.length} стримеров с сервера`);
+                        const serverStreamerIds = new Set(data.streamers.map(s => s.id));
+                        const localStreamers = registeredStreamers || [];
+                        
+                        // Добавляем локальных стримеров, которых нет на сервере
+                        localStreamers.forEach(localStreamer => {
+                            if (localStreamer.id && !serverStreamerIds.has(localStreamer.id)) {
+                                data.streamers.push(localStreamer);
+                            }
+                        });
+                        
+                        registeredStreamers = data.streamers;
+                        localStorage.setItem('by_CTPAX_streamers', JSON.stringify(registeredStreamers));
+                        console.log(`✅ Объединено ${registeredStreamers.length} стримеров (сервер + локальные)`);
+                    }
                     
-                    // if (data.users && data.users.length > 0) {
-                    //     console.log(`📥 Загружено ${data.users.length} пользователей с сервера`);
-                    //     registeredUsers = data.users;
-                    //     localStorage.setItem('by_CTPAX_users', JSON.stringify(registeredUsers));
-                    // }
+                    // Загружаем authLog с сервера
+                    if (data.authLog && Array.isArray(data.authLog) && data.authLog.length > 0) {
+                        console.log(`📥 Загружено ${data.authLog.length} записей лога авторизации с сервера`);
+                        const localAuthLog = authorizationLog || [];
+                        // Объединяем: серверные записи + локальные
+                        const mergedAuthLog = [...data.authLog, ...localAuthLog];
+                        // Удаляем дубликаты по timestamp и userId
+                        const uniqueAuthLog = mergedAuthLog.filter((entry, index, self) => 
+                            index === self.findIndex(e => 
+                                e.timestamp === entry.timestamp && 
+                                (e.userId === entry.userId || e.username === entry.username)
+                            )
+                        );
+                        authorizationLog = uniqueAuthLog.map(entry => ({
+                            ...entry,
+                            timestamp: entry.timestamp instanceof Date ? entry.timestamp : new Date(entry.timestamp)
+                        }));
+                        localStorage.setItem('by_CTPAX_auth_log', JSON.stringify(authorizationLog));
+                        console.log(`✅ Объединено ${authorizationLog.length} записей лога авторизации`);
+                    }
                     
-                    // if (data.streamers && data.streamers.length > 0) {
-                    //     console.log(`⚠️ Streamers с сервера проигнорированы (${data.streamers.length} записей). Файл streamers.json управляется только вручную.`);
-                    // }
+                    // Загружаем notifications с сервера
+                    if (data.notifications) {
+                        notificationSettings = { ...notificationSettings, ...data.notifications };
+                        localStorage.setItem('by_CTPAX_notifications', JSON.stringify(notificationSettings));
+                        console.log('✅ Настройки уведомлений загружены с сервера');
+                    }
                     
-                    // if (data.authLog && data.authLog.length > 0) {
-                    //     console.log(`📥 Загружено ${data.authLog.length} записей лога авторизации с сервера`);
-                    //     authorizationLog = data.authLog.map(entry => ({
-                    //         ...entry,
-                    //         timestamp: new Date(entry.timestamp)
-                    //     }));
-                    //     localStorage.setItem('by_CTPAX_auth_log', JSON.stringify(authorizationLog));
-                    // }
+                    // Загружаем settings с сервера
+                    if (data.settings) {
+                        userManagementSettings = { ...userManagementSettings, ...data.settings };
+                        localStorage.setItem('by_CTPAX_user_management_settings', JSON.stringify(userManagementSettings));
+                        console.log('✅ Настройки управления пользователями загружены с сервера');
+                    }
                     
-                    // if (data.notifications) {
-                    //     notificationSettings = { ...notificationSettings, ...data.notifications };
-                    //     localStorage.setItem('by_CTPAX_notifications', JSON.stringify(notificationSettings));
-                    // }
-                    
-                    // if (data.settings) {
-                    //     userManagementSettings = { ...userManagementSettings, ...data.settings };
-                    //     localStorage.setItem('by_CTPAX_user_management_settings', JSON.stringify(userManagementSettings));
-                    // }
-                    
-                    console.log('✅ Загрузка данных с сервера пропущена (защита от перезаписи)');
+                    console.log('✅ Все данные успешно загружены с сервера');
                 }
             } catch (error) {
                 console.warn('⚠️ Не удалось загрузить данные пользователей с сервера, используем localStorage:', error.message);
