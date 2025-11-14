@@ -2843,6 +2843,14 @@
                             </svg>
                             <span>Обновить данные</span>
                         </button>
+                        <button id="exportUsersBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all flex items-center gap-2 font-medium whitespace-nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7,10 12,15 17,10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span>Экспорт</span>
+                        </button>
                         <div class="flex gap-2">
                             <select id="userSortBy" class="bg-gray-600 border border-gray-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="date">По дате входа</option>
@@ -9353,6 +9361,155 @@ if (!isby_CTPAX) {
             });
         }
         
+        // Export users function
+        function exportUsersToCSV() {
+            if (!isby_CTPAX) return;
+            
+            try {
+                const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
+                const sortBy = document.getElementById('userSortBy')?.value || 'date';
+                const statusFilter = document.getElementById('userFilterStatus')?.value || 'all';
+                
+                // Filter users (same logic as in renderUsersTable)
+                let filteredUsers = registeredUsers.filter(user => {
+                    const matchesSearch = user.login.toLowerCase().includes(searchTerm) || 
+                                        user.id.includes(searchTerm) ||
+                                        user.displayName.toLowerCase().includes(searchTerm);
+                                        
+                    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+                    
+                    return matchesSearch && matchesStatus;
+                });
+                
+                // Sort users (same logic as in renderUsersTable)
+                filteredUsers.sort((a, b) => {
+                    switch(sortBy) {
+                        case 'login':
+                            return a.login.localeCompare(b.login);
+                        case 'status':
+                            return a.status.localeCompare(b.status);
+                        case 'date':
+                        default:
+                            const dateA = new Date(b.lastLoginDate || b.lastSeen || b.joinDate || 0);
+                            const dateB = new Date(a.lastLoginDate || a.lastSeen || a.joinDate || 0);
+                            return dateA - dateB;
+                    }
+                });
+                
+                // Helper functions (same as in renderUsersTable)
+                function isSuspiciousIP(ip) {
+                    if (!ip || ip === '::1' || ip === '127.0.0.1') return true;
+                    if (ip.startsWith('192.168.') || ip.startsWith('10.') || 
+                        (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
+                        return true;
+                    }
+                    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+                    if (!ipv4Regex.test(ip)) return true;
+                    return false;
+                }
+                
+                function getUserDeviceType(user) {
+                    if (user.browserInfo && user.browserInfo.device) {
+                        const device = user.browserInfo.device.toLowerCase();
+                        if (device.includes('телефон') || device.includes('mobile') || device.includes('phone')) {
+                            return 'Телефон';
+                        }
+                        if (device.includes('планшет') || device.includes('tablet')) {
+                            return 'Планшет';
+                        }
+                        return 'Компьютер';
+                    }
+                    if (user.stats && user.stats.parsed && user.stats.parsed.device) {
+                        const device = user.stats.parsed.device.toLowerCase();
+                        if (device.includes('телефон') || device.includes('mobile') || device.includes('phone')) {
+                            return 'Телефон';
+                        }
+                        if (device.includes('планшет') || device.includes('tablet')) {
+                            return 'Планшет';
+                        }
+                        return 'Компьютер';
+                    }
+                    return 'Компьютер'; // По умолчанию
+                }
+                
+                function getStatusText(user) {
+                    let userStatus = user.status;
+                    if (userStatus !== 'blocked') {
+                        const ip = user.ipAddress;
+                        if (ip && !isSuspiciousIP(ip)) {
+                            userStatus = 'verified';
+                        } else {
+                            userStatus = 'unverified';
+                        }
+                    }
+                    
+                    const statusMap = {
+                        verified: '✅ Подтверждён',
+                        blocked: '⛔ Заблокирован',
+                        unverified: '❓ Неподтверждён'
+                    };
+                    return statusMap[userStatus] || '❓ Неподтверждён';
+                }
+                
+                // Create CSV content
+                const headers = ['Аватар', 'Twitch логин', 'ID', 'Дата входа', 'IP', 'Статус', 'Система', 'Действия'];
+                const rows = filteredUsers.map(user => {
+                    const avatarUrl = user.avatarUrl || '';
+                    const login = `${user.displayName || user.login}\n@${user.login}`;
+                    const userId = user.id || '';
+                    const loginDate = user.lastLoginDate ? formatDate(user.lastLoginDate) : 
+                                    (user.lastSeen ? formatDate(user.lastSeen) : 
+                                    (user.joinDate ? formatDate(user.joinDate) : '—'));
+                    const ip = user.ipAddress && user.ipAddress !== '::1' && user.ipAddress !== '127.0.0.1' 
+                              ? user.ipAddress 
+                              : '—';
+                    const status = getStatusText(user);
+                    const system = getUserDeviceType(user);
+                    const actions = ''; // Пусто для экспорта
+                    
+                    // Escape values that contain commas or quotes
+                    function escapeCSV(value) {
+                        if (value == null || value === '') return '';
+                        const stringValue = String(value);
+                        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                            return `"${stringValue.replace(/"/g, '""')}"`;
+                        }
+                        return stringValue;
+                    }
+                    
+                    return [
+                        escapeCSV(avatarUrl),
+                        escapeCSV(login),
+                        escapeCSV(userId),
+                        escapeCSV(loginDate),
+                        escapeCSV(ip),
+                        escapeCSV(status),
+                        escapeCSV(system),
+                        escapeCSV(actions)
+                    ].join('\t');
+                });
+                
+                // Combine headers and rows
+                const csvContent = [headers.join('\t'), ...rows].join('\n');
+                
+                // Create blob and download
+                const blob = new Blob(['\ufeff' + csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.tsv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification(`Экспортировано ${filteredUsers.length} пользователей`, 'success');
+            } catch (error) {
+                console.error('Ошибка экспорта пользователей:', error);
+                showNotification('Ошибка экспорта пользователей', 'error');
+            }
+        }
+        
         // Render streamers table
         function renderStreamersTable() {
             if (!isby_CTPAX) return;
@@ -11824,6 +11981,12 @@ if (!isby_CTPAX) {
             
             // Кнопка обновления IP адресов
             const refreshUserIPsBtn = document.getElementById('refreshUserIPsBtn');
+            // Export users button
+            const exportUsersBtn = document.getElementById('exportUsersBtn');
+            exportUsersBtn?.addEventListener('click', () => {
+                exportUsersToCSV();
+            });
+            
             refreshUserIPsBtn?.addEventListener('click', async () => {
                 if (!USE_SERVER) {
                     showNotification('Сервер не включен. Включите USE_SERVER = true', 'error');
