@@ -2918,8 +2918,8 @@
 
     <script>
         // Server configuration (определяем ПЕРВЫМ, чтобы использовать в Twitch OAuth)
-        // Автоматическое определение URL сервера
-        const SERVER_URL = window.location.origin || 'http://localhost:3000';
+        // Автоматическое определение URL сервера - ВСЕГДА используем текущий URL
+        const SERVER_URL = window.location.origin;
         const USE_SERVER = true; // Включить использование сервера
         
         // Twitch OAuth Configuration
@@ -2928,20 +2928,18 @@
         
         // Функция для получения redirect URI
         function getTwitchRedirectURI() {
-            // Всегда используем текущий URL страницы для redirect URI
-            // Это гарантирует правильную работу и на localhost, и на продакшене
+            // ВСЕГДА используем текущий URL страницы для redirect URI
+            // Это гарантирует правильную работу на любом хостинге
             const currentOrigin = window.location.origin;
-            const currentPath = window.location.pathname;
             
-            // Если мы на localhost:3000, используем его
-            if (currentOrigin.includes('localhost:3000')) {
-                return 'http://localhost:3000/';
-            }
-            
-            // Для всех остальных случаев (включая Vercel) используем текущий origin
             // Убираем trailing slash если есть, и добавляем один
             const baseUrl = currentOrigin.replace(/\/$/, '');
-            return `${baseUrl}/`;
+            const redirectURI = `${baseUrl}/`;
+            
+            console.log('[Twitch OAuth] Текущий origin:', currentOrigin);
+            console.log('[Twitch OAuth] Redirect URI:', redirectURI);
+            
+            return redirectURI;
         }
         
         // Функция для получения auth URL
