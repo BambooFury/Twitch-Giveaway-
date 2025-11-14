@@ -183,8 +183,15 @@ async function saveData(filename, data) {
         await fsPromises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf8');
         await fsPromises.rename(tempPath, filePath);
         
-        // Инвалидируем кеш после сохранения
-        invalidateCache(filename);
+        // Обновляем кеш после сохранения, чтобы последующие запросы получали актуальные данные
+        const cacheKey = filename.replace('.json', '');
+        if (['visitors', 'users', 'streamers', 'settings', 'giveaways'].includes(cacheKey)) {
+            dataCache[cacheKey] = data;
+            dataCache.lastUpdate[cacheKey] = Date.now();
+        } else {
+            // Для других файлов просто инвалидируем кеш
+            invalidateCache(filename);
+        }
         
         console.log(`💾 Данные сохранены в ${filename} (${data.length || Object.keys(data).length} записей)`);
     } catch (error) {
@@ -236,7 +243,8 @@ app.post('/api/visitors', async (req, res) => {
         
         console.log(`[API] POST /api/visitors - User: ${username}, Channel: ${channel}, Action: ${action}, Local IP: ${clientIP}, Public IP: ${publicIP || 'N/A'}, Final IP: ${finalIP}`);
         
-        const visitors = await loadData('visitors.json');
+        // Загружаем данные БЕЗ кеша, чтобы получить самые свежие данные перед сохранением
+        const visitors = await loadData('visitors.json', false);
         
         const visitor = {
             id: generateUUID(),
