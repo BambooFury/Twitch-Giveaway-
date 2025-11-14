@@ -5544,6 +5544,7 @@ if (!isby_CTPAX) {
         // Handle Twitch OAuth login
         twitchAuthBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             
             // Генерируем auth URL динамически при каждом клике
             // Это гарантирует использование актуального redirect URI
@@ -5553,8 +5554,10 @@ if (!isby_CTPAX) {
             console.log('=== Twitch OAuth Click ===');
             console.log('Текущий URL страницы:', window.location.href);
             console.log('Текущий origin:', window.location.origin);
+            console.log('Текущий hostname:', window.location.hostname);
             console.log('Redirect URI:', redirectURI);
-            console.log('Auth URL:', currentAuthURL);
+            console.log('Auth URL (первые 200 символов):', currentAuthURL.substring(0, 200));
+            console.log('Полный Auth URL:', currentAuthURL);
             console.log('========================');
             
             // Проверка: если redirect URI содержит localhost, но мы не на localhost - это ошибка
@@ -5565,7 +5568,23 @@ if (!isby_CTPAX) {
                 return;
             }
             
-            window.location.href = currentAuthURL;
+            // Дополнительная проверка: убедимся, что redirect_uri в Auth URL правильный
+            const urlParams = new URLSearchParams(currentAuthURL.split('?')[1]);
+            const redirectParam = urlParams.get('redirect_uri');
+            console.log('Redirect URI из Auth URL:', redirectParam);
+            
+            if (redirectParam && redirectParam.includes('localhost:3000') && !window.location.hostname.includes('localhost')) {
+                console.error('КРИТИЧЕСКАЯ ОШИБКА: Auth URL содержит localhost:3000!');
+                console.error('Это означает, что код не обновлен или используется кэш!');
+                alert('Ошибка: используется старый redirect URI. Очистите кэш браузера (Ctrl+Shift+Delete) и обновите страницу (Ctrl+F5).');
+                return;
+            }
+            
+            // Небольшая задержка для логирования
+            setTimeout(() => {
+                console.log('Переход на Twitch OAuth...');
+                window.location.href = currentAuthURL;
+            }, 100);
         });
 
         // Disconnect button
