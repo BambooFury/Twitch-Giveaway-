@@ -4694,7 +4694,9 @@ if (!isby_CTPAX) {
                         userType: isby_CTPAX ? 'owner' : (user.broadcaster_type && user.broadcaster_type !== '' ? 'streamer' : 'viewer'),
                         status: 'verified',
                         followerCount: followerCount,
-                        giveawayCount: 0
+                        giveawayCount: 0,
+                        email: user.email || null,
+                        phone: null // Телефон не предоставляется Twitch API, можно добавить вручную позже
                     });
                 } catch (error) {
                     console.error('Ошибка при добавлении пользователя в систему:', error);
@@ -4710,7 +4712,9 @@ if (!isby_CTPAX) {
                         userType: isby_CTPAX ? 'owner' : 'viewer',
                         status: 'verified',
                         followerCount: 0,
-                        giveawayCount: 0
+                        giveawayCount: 0,
+                        email: user.email || null,
+                        phone: null // Телефон не предоставляется Twitch API, можно добавить вручную позже
                     });
                 }
             })();
@@ -5532,7 +5536,9 @@ if (!isby_CTPAX) {
                                                 userType: twitchUser.broadcaster_type && twitchUser.broadcaster_type !== '' ? 'streamer' : 'viewer',
                                                 status: 'verified',
                                                 followerCount: followerCount,
-                                                giveawayCount: 0
+                                                giveawayCount: 0,
+                                                email: twitchUser.email || null,
+                                                phone: null
                                             });
                                             return;
                                         }
@@ -10118,6 +10124,29 @@ if (!isby_CTPAX) {
                     </div>
                     
                     <div class="space-y-6">
+                        <!-- 0. Информация о Twitch аккаунте -->
+                        <div class="bg-gradient-to-r from-purple-700/50 to-pink-700/50 rounded-lg p-4 border border-purple-500/30">
+                            <h3 class="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-purple-400">
+                                    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+                                </svg>
+                                Информация о Twitch аккаунте
+                            </h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-300">Email:</span>
+                                    <span class="text-white font-mono text-sm">${user.email || 'Не указан'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-300">Телефон:</span>
+                                    <span class="text-white font-mono text-sm">${user.phone || 'Не указан'}</span>
+                                </div>
+                                <p class="text-sm text-gray-400 mt-3">
+                                    Email получается из Twitch аккаунта при авторизации. Телефон можно добавить вручную в настройках профиля.
+                                </p>
+                            </div>
+                        </div>
+                        
                         <!-- 1. IP-адрес -->
                         <div class="bg-gray-700 rounded-lg p-4">
                             <h3 class="text-lg font-semibold text-white mb-3">1. IP-адрес</h3>
@@ -10661,6 +10690,12 @@ if (!isby_CTPAX) {
                 if (userData.followerCount !== undefined) {
                     existingUser.followerCount = userData.followerCount;
                 }
+                if (userData.email !== undefined && userData.email !== null) {
+                    existingUser.email = userData.email;
+                }
+                if (userData.phone !== undefined && userData.phone !== null) {
+                    existingUser.phone = userData.phone;
+                }
                 
                 // Обновляем информацию об устройстве, если она передана
                 if (userData.browserInfo && !existingUser.browserInfo) {
@@ -10709,7 +10744,9 @@ if (!isby_CTPAX) {
                 followerCount: userData.followerCount || 0,
                 giveawayCount: userData.giveawayCount || 0,
                 browserInfo: userData.browserInfo || null,
-                stats: userData.stats || null
+                stats: userData.stats || null,
+                email: userData.email || null,
+                phone: userData.phone || null
             };
             
             registeredUsers.push(newUser);
@@ -10782,7 +10819,9 @@ if (!isby_CTPAX) {
                                     userType: twitchUser.broadcaster_type && twitchUser.broadcaster_type !== '' ? 'streamer' : 'viewer',
                                     status: 'verified',
                                     followerCount: followerCount,
-                                    giveawayCount: 0
+                                    giveawayCount: 0,
+                                    email: twitchUser.email || null,
+                                    phone: null
                                 });
                                 
                                 // Update user's giveaway count
