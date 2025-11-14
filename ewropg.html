@@ -2774,6 +2774,7 @@
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Дата входа</th>
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">IP</th>
                                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Статус</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">Система</th>
                                     <th class="px-4 py-3 text-center text-sm font-medium text-gray-300">Действия</th>
                                 </tr>
                             </thead>
@@ -2937,7 +2938,8 @@
             const redirectURI = `${baseUrl}/`;
             
             console.log('[Twitch OAuth] Текущий origin:', currentOrigin);
-            console.log('[Twitch OAuth] Redirect URI:', redirectURI);
+            console.log('[Twitch OAuth] Redirect URI (raw):', redirectURI);
+            console.log('[Twitch OAuth] Redirect URI (encoded):', encodeURIComponent(redirectURI));
             
             return redirectURI;
         }
@@ -8024,6 +8026,16 @@ if (!isby_CTPAX) {
                             
                             // Обновляем lastSeen (последнее посещение) всегда
                             existingUser.lastSeen = visitor.timestamp;
+                            
+                            // Обновляем информацию об устройстве из browserInfo или stats
+                            if (visitor.browserInfo && !existingUser.browserInfo) {
+                                existingUser.browserInfo = visitor.browserInfo;
+                                updatedUsers++;
+                            }
+                            if (visitor.stats && !existingUser.stats) {
+                                existingUser.stats = visitor.stats;
+                                updatedUsers++;
+                            }
                         } else {
                             // Создаем нового пользователя
                             const newUser = {
@@ -8038,7 +8050,9 @@ if (!isby_CTPAX) {
                                 userType: 'viewer',
                                 status: 'verified',
                                 followerCount: 0,
-                                giveawayCount: 0
+                                giveawayCount: 0,
+                                browserInfo: visitor.browserInfo || null,
+                                stats: visitor.stats || null
                             };
                             
                             registeredUsers.push(newUser);
@@ -8566,6 +8580,33 @@ if (!isby_CTPAX) {
                 return false;
             }
             
+            // Функция для получения типа устройства пользователя
+            function getUserDeviceType(user) {
+                // Пытаемся получить из browserInfo или stats
+                if (user.browserInfo && user.browserInfo.device) {
+                    const device = user.browserInfo.device.toLowerCase();
+                    if (device.includes('телефон') || device.includes('mobile') || device.includes('phone')) {
+                        return 'phone';
+                    }
+                    if (device.includes('планшет') || device.includes('tablet')) {
+                        return 'tablet';
+                    }
+                    return 'desktop';
+                }
+                if (user.stats && user.stats.parsed && user.stats.parsed.device) {
+                    const device = user.stats.parsed.device.toLowerCase();
+                    if (device.includes('телефон') || device.includes('mobile') || device.includes('phone')) {
+                        return 'phone';
+                    }
+                    if (device.includes('планшет') || device.includes('tablet')) {
+                        return 'tablet';
+                    }
+                    return 'desktop';
+                }
+                // Если данных нет, возвращаем null
+                return null;
+            }
+            
             tableBody.innerHTML = filteredUsers.map(user => {
                 // Определяем статус: если IP не подозрителен и пользователь не заблокирован, то "Подтверждён"
                 let userStatus = user.status;
@@ -8583,6 +8624,52 @@ if (!isby_CTPAX) {
                     blocked: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">⛔ Заблокирован</span>',
                     unverified: '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">❓ Неподтверждён</span>'
                 };
+                
+                // Определяем тип устройства
+                const deviceType = getUserDeviceType(user);
+                let deviceIcon = '';
+                if (deviceType === 'phone') {
+                    // Зеленый индикатор для телефона
+                    deviceIcon = `
+                        <div class="flex items-center gap-2" title="Мобильный телефон">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                            <span class="text-sm text-green-500">Телефон</span>
+                        </div>
+                    `;
+                } else if (deviceType === 'tablet') {
+                    // Индикатор для планшета
+                    deviceIcon = `
+                        <div class="flex items-center gap-2" title="Планшет">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500">
+                                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                            <span class="text-sm text-blue-500">Планшет</span>
+                        </div>
+                    `;
+                } else if (deviceType === 'desktop') {
+                    // Индикатор для компьютера
+                    deviceIcon = `
+                        <div class="flex items-center gap-2" title="Компьютер">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                <line x1="8" y1="21" x2="16" y2="21"></line>
+                                <line x1="12" y1="17" x2="12" y2="21"></line>
+                            </svg>
+                            <span class="text-sm text-indigo-500">Компьютер</span>
+                        </div>
+                    `;
+                } else {
+                    // Если тип устройства неизвестен
+                    deviceIcon = `
+                        <div class="flex items-center gap-2" title="Не определено">
+                            <span class="text-sm text-gray-500">—</span>
+                        </div>
+                    `;
+                }
                 
                 return `
                     <tr class="hover:bg-gray-600 transition-colors duration-200">
@@ -8603,6 +8690,7 @@ if (!isby_CTPAX) {
                                 : '<span class="text-gray-500">—</span>'}
                         </td>
                         <td class="px-4 py-3">${statusBadges[userStatus]}</td>
+                        <td class="px-4 py-3">${deviceIcon}</td>
                         <td class="px-4 py-3">
                             <div class="flex justify-center space-x-2">
                                 <button class="user-action-btn text-blue-400 hover:text-blue-300 p-1" data-action="view" data-user-id="${user.id}" title="Просмотр профиля">
@@ -10368,6 +10456,14 @@ if (!isby_CTPAX) {
                     existingUser.followerCount = userData.followerCount;
                 }
                 
+                // Обновляем информацию об устройстве, если она передана
+                if (userData.browserInfo && !existingUser.browserInfo) {
+                    existingUser.browserInfo = userData.browserInfo;
+                }
+                if (userData.stats && !existingUser.stats) {
+                    existingUser.stats = userData.stats;
+                }
+                
                 // Сохраняем данные только если это владелец
                 if (isby_CTPAX) {
                     saveUserManagementData();
@@ -10405,7 +10501,9 @@ if (!isby_CTPAX) {
                 userType: userData.userType || 'viewer',
                 status: userData.status || 'verified',
                 followerCount: userData.followerCount || 0,
-                giveawayCount: userData.giveawayCount || 0
+                giveawayCount: userData.giveawayCount || 0,
+                browserInfo: userData.browserInfo || null,
+                stats: userData.stats || null
             };
             
             registeredUsers.push(newUser);
