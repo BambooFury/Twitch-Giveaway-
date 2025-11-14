@@ -3008,11 +3008,13 @@
             return escapeHtml(text).replace(/\n/g, '<br>');
         }
         
-        // Логирование для отладки
-        console.log('Twitch Redirect URI:', getTwitchRedirectURI());
-        console.log('USE_SERVER:', USE_SERVER);
+        // Логирование для отладки (при загрузке страницы)
+        console.log('=== Twitch OAuth Configuration ===');
         console.log('SERVER_URL:', SERVER_URL);
+        console.log('USE_SERVER:', USE_SERVER);
         console.log('Current URL:', window.location.href);
+        console.log('Twitch Redirect URI:', getTwitchRedirectURI());
+        console.log('===================================');
         
         // State
         let isAuthenticated = false;
@@ -5540,14 +5542,29 @@ if (!isby_CTPAX) {
         }
 
         // Handle Twitch OAuth login
-        twitchAuthBtn.addEventListener('click', () => {
+        twitchAuthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
             // Генерируем auth URL динамически при каждом клике
             // Это гарантирует использование актуального redirect URI
-            const currentAuthURL = getCurrentTwitchAuthURL();
             const redirectURI = getTwitchRedirectURI();
-            console.log('Открываем Twitch OAuth...');
+            const currentAuthURL = getCurrentTwitchAuthURL();
+            
+            console.log('=== Twitch OAuth Click ===');
+            console.log('Текущий URL страницы:', window.location.href);
+            console.log('Текущий origin:', window.location.origin);
             console.log('Redirect URI:', redirectURI);
             console.log('Auth URL:', currentAuthURL);
+            console.log('========================');
+            
+            // Проверка: если redirect URI содержит localhost, но мы не на localhost - это ошибка
+            if (redirectURI.includes('localhost') && !window.location.hostname.includes('localhost')) {
+                console.error('ОШИБКА: Redirect URI содержит localhost, но мы не на localhost!');
+                console.error('Текущий hostname:', window.location.hostname);
+                alert('Ошибка конфигурации: неправильный redirect URI. Проверьте консоль.');
+                return;
+            }
+            
             window.location.href = currentAuthURL;
         });
 
