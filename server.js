@@ -540,8 +540,9 @@ app.post('/api/users', async (req, res) => {
 // API: Загрузка данных пользователей с кешированием
 app.get('/api/users', rateLimit, async (req, res) => {
     try {
+        // Загружаем streamers БЕЗ кеша, чтобы всегда получать актуальные данные
         const users = await loadData('users.json');
-        const streamers = await loadData('streamers.json');
+        const streamers = await loadData('streamers.json', false); // Без кеша для актуальности
         const authLog = await loadData('auth_log.json');
         const notifications = await loadData('notifications.json');
         const settings = await loadData('user_management_settings.json');

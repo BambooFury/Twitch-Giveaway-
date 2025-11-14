@@ -8494,8 +8494,9 @@ if (!isby_CTPAX) {
             ).filter(id => id !== null);
             
             // Сначала загружаем данные с сервера (приоритет), затем из localStorage
+            // Принудительно перезагружаем для получения актуальных данных
             if (USE_SERVER) {
-                await loadUserDataFromServer();
+                await loadUserDataFromServer(true);
             }
             
             // Load from localStorage - no demo data, only real users (используем как fallback или для дополнения)
@@ -8789,11 +8790,18 @@ if (!isby_CTPAX) {
         }
         
         // Загрузка данных пользователей с сервера (приоритет над localStorage)
-        async function loadUserDataFromServer() {
+        async function loadUserDataFromServer(forceReload = false) {
             if (!USE_SERVER || !isby_CTPAX) return;
             
             try {
-                const response = await fetch(`${SERVER_URL}/api/users`);
+                // Добавляем параметр для обхода кеша браузера
+                const url = forceReload 
+                    ? `${SERVER_URL}/api/users?t=${Date.now()}` 
+                    : `${SERVER_URL}/api/users`;
+                
+                const response = await fetch(url, {
+                    cache: forceReload ? 'no-cache' : 'default'
+                });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -11543,7 +11551,7 @@ if (!isby_CTPAX) {
             clearAllDataBtn?.addEventListener('click', clearAllChannelData);
             
             // User management handlers
-            userManagementBtn?.addEventListener('click', () => {
+            userManagementBtn?.addEventListener('click', async () => {
                 ownerDropdown?.classList.add('hidden');
                 // Clean up dropdown container
                 const dropdownContainer = document.getElementById('dropdown-container');
@@ -11552,6 +11560,10 @@ if (!isby_CTPAX) {
                 }
                 
                 if (isby_CTPAX) {
+                    // Принудительно перезагружаем данные с сервера при открытии модального окна
+                    if (USE_SERVER) {
+                        await loadUserDataFromServer(true);
+                    }
                     initializeUserManagementData();
                     userManagementModal?.classList.remove('hidden');
                     
